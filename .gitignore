@@ -1,0 +1,10 @@
+/*.egg-info
+.eggs
+/__pycache__
+.pytest_cache
+*.pyc
+/reports
+/.coverage
+/build
+.idea
+dist
