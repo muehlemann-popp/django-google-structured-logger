@@ -19,6 +19,7 @@ class SetRequestToLoggerMiddleware:
     def __init__(self, get_response):
         # One-time configuration and initialization.
         self.get_response = get_response
+        self.request_body = None
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         # Early exit if logging middleware is disabled
@@ -28,6 +29,7 @@ class SetRequestToLoggerMiddleware:
         # Code to be executed for each request before
         # the view (and later middleware) are called.
 
+        self.request_body = getattr(request, "body", None)
         response = self.get_response(request)
         # Code to be executed for each request/response after
         # the view is called.
@@ -256,13 +258,9 @@ class SetRequestToLoggerMiddleware:
             case "multipart/form-data":
                 return "The image was uploaded to the server"
             case "application/json":
-                return self._mask_sensitive_data(
-                    decode_and_abridge(getattr(request, "body", None))
-                )
+                return self._mask_sensitive_data(decode_and_abridge(self.request_body))
             case "text/plain":
-                return self._mask_sensitive_data(
-                    self._abridge(getattr(request, "body", None))
-                )
+                return self._mask_sensitive_data(self._abridge(self.request_body))
             case _:
                 return self._mask_sensitive_data(content_type)
 
