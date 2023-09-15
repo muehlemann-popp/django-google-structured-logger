@@ -41,7 +41,6 @@ class LogRequestAndResponseMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
-        self.request_body = None
         self.log_excluded_headers_set = set(
             map(str.lower, settings.LOG_EXCLUDED_HEADERS)
         )
@@ -50,9 +49,8 @@ class LogRequestAndResponseMiddleware:
         if not settings.LOG_MIDDLEWARE_ENABLED:
             return self.get_response(request)
 
-        self.request_body = getattr(request, "body", None)
-        response = self.get_response(request)
         self.process_request(request)
+        response = self.get_response(request)
         self.process_response(request, response)
         return response
 
@@ -70,15 +68,17 @@ class LogRequestAndResponseMiddleware:
         try:
             path = self._empty_value_none(getattr(request, "path", None))
             method = self._empty_value_none(getattr(request, "method", None))
+            content_type = self._empty_value_none(
+                getattr(request, "content_type", None)
+            )
+            request_body = self._empty_value_none(getattr(request, "body", None))
             request_data = {
                 "request": {
-                    "body": self._get_request_body(request),
+                    "body": self._get_request_body(content_type, request_body),
                     "query_params": self._empty_value_none(
                         getattr(request, "GET", None)
                     ),
-                    "content_type": self._empty_value_none(
-                        getattr(request, "content_type", None)
-                    ),
+                    "content_type": content_type,
                     "method": method,
                     "path": path,
                     "headers": self._empty_value_none(
@@ -108,6 +108,14 @@ class LogRequestAndResponseMiddleware:
 
         try:
             response_data = self._abridge(getattr(response, "data", None))
+            if response_data is None:
+                response_content = self._abridge(getattr(response, "content", None))
+                content_type = self._empty_value_none(
+                    getattr(request, "content_type", None)
+                )
+                response_data = (
+                    self._get_request_body(content_type, response_content),
+                )
             response_status_code = getattr(response, "status_code", 0)
             response_headers = self._exclude_keys(getattr(response, "headers", None))
 
@@ -255,7 +263,7 @@ class LogRequestAndResponseMiddleware:
             if k.lower() not in self.log_excluded_headers_set
         }
 
-    def _get_request_body(self, request) -> Union[str, Dict, None]:
+    def _get_request_body(self, content_type, request_body) -> Union[str, Dict, None]:
         """
         Extract request body and mask sensitive data.
 
@@ -263,7 +271,6 @@ class LogRequestAndResponseMiddleware:
         Input: Django request object with JSON body {"key": "value" }
         Output: {"key": "value"}
         """
-        content_type = getattr(request, "content_type", None)
 
         def decode_and_abridge(body_bytes):
             body_str = body_bytes.decode("UTF-8") if body_bytes else None
@@ -276,9 +283,9 @@ class LogRequestAndResponseMiddleware:
         if content_type == "multipart/form-data":
             return "The image was uploaded to the server"
         elif content_type == "application/json":
-            return self._mask_sensitive_data(decode_and_abridge(self.request_body))
+            return self._mask_sensitive_data(decode_and_abridge(request_body))
         elif content_type == "text/plain":
-            return self._mask_sensitive_data(self._abridge(self.request_body))
+            return self._mask_sensitive_data(self._abridge(request_body))
         else:
             return self._mask_sensitive_data(content_type)
 

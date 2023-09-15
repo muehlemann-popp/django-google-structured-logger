@@ -21,29 +21,54 @@
 1. Add `GoogleFormatter` to your Django's `LOGGING` setting.
    Example:
    ```python
-   LOGGING = {
-       "version": 1,
-       "disable_existing_loggers": False,
-       "formatters": {
-           "json": {
-               "()": "django_google_structured_logger.formatter.GoogleFormatter",
-           },
-       },
-       "handlers": {
-           "google-json-handler": {
-               "class": "logging.StreamHandler",
-               "formatter": "json",
-           },
-       },
-       "root": {
-           "handlers": ["google-json-handler"],
-           "level": logging.INFO,
-       }
-   }
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "json": {
+                "()": "django_google_structured_logger.formatter.GoogleFormatter",
+            },
+        },
+        "handlers": {
+            "console": {
+                "level": "INFO",
+                "class": "logging.StreamHandler",
+            },
+            "google-json-handler": {
+                "class": "logging.StreamHandler",
+                "formatter": "json",
+            },
+        },
+        "root": {
+            "handlers": [env.str("DJANGO_LOG_HANDLER", "google-json-handler")],
+            "level": env.str("ROOT_LOG_LEVEL", "INFO"),
+        },
+        "loggers": {
+            "()": {
+                "handlers": [env.str("DJANGO_LOG_HANDLER", "google-json-handler")],
+                "level": env.str("DJANGO_LOG_LEVEL", "INFO"),
+            },
+            "django": {
+                "handlers": [env.str("DJANGO_LOG_HANDLER", "google-json-handler")],
+                "level": env.str("DJANGO_LOG_LEVEL", "INFO"),
+                "propagate": False,
+            },
+            "django.server": {
+                "handlers": [env.str("DJANGO_LOG_HANDLER", "google-json-handler")],
+                "level": env.str("DJANGO_SERVER_LEVEL", "ERROR"),
+                "propagate": False,
+            },
+            "django.request": {
+                "handlers": [env.str("DJANGO_LOG_HANDLER", "google-json-handler")],
+                "level": env.str("DJANGO_REQUEST_LEVEL", "ERROR"),
+                "propagate": False,
+            },
+        },
+    }
    ```
 2. Add `SetRequestToLoggerMiddleware` to your Django's `MIDDLEWARE` setting.
 
-    Example for Django middleware:
+    Django middleware:
     ```python
     MIDDLEWARE = [
         ...
@@ -52,14 +77,12 @@
         "django_google_structured_logger.middlewares.LogRequestAndResponseMiddleware",  # Log request and response.
     ]
     ```
-   Example for GRAPHENE middleware:
+   GRAPHENE middleware:
    ```python
     GRAPHENE = {
          "MIDDLEWARE": [
               ...
-              # Ordering is important:
               "django_google_structured_logger.graphene_middlewares.GrapheneSetUserContextMiddleware",  # Set user context to logger.
-              "django_google_structured_logger.graphene_middlewares.GrapheneLogRequestAndResponseMiddleware",  # Log request and response.
          ]
     }
    ```
