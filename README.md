@@ -42,13 +42,27 @@
    }
    ```
 2. Add `SetRequestToLoggerMiddleware` to your Django's `MIDDLEWARE` setting.
-    Example:
+
+    Example for Django middleware:
     ```python
     MIDDLEWARE = [
-         ...
-         "django_google_structured_logger.middleware.SetRequestToLoggerMiddleware",
+        ...
+        # Ordering is important:
+        "django_google_structured_logger.middlewares.SetUserContextMiddleware",  # Set user context to logger.
+        "django_google_structured_logger.middlewares.LogRequestAndResponseMiddleware",  # Log request and response.
     ]
     ```
+   Example for GRAPHENE middleware:
+   ```python
+    GRAPHENE = {
+         "MIDDLEWARE": [
+              ...
+              # Ordering is important:
+              "django_google_structured_logger.graphene_middlewares.GrapheneSetUserContextMiddleware",  # Set user context to logger.
+              "django_google_structured_logger.graphene_middlewares.GrapheneLogRequestAndResponseMiddleware",  # Log request and response.
+         ]
+    }
+   ```
 3. Ensure your Django project has the necessary configurations in the `settings.py`.
 
 ### Key Components:
@@ -70,16 +84,30 @@
 
 These are the settings that can be customized for the middleware:
 
-- **LOG_MAX_STR_LEN**: Maximum string length before data is abridged. Default is 200.
-- **LOG_MAX_LIST_LEN**: Maximum list length before data is abridged. Default is 10.
-- **LOG_EXCLUDED_ENDPOINTS**: List of endpoints to exclude from logging. Default is an empty list.
-- **LOG_SENSITIVE_KEYS**: Regex patterns for keys which contain sensitive data. Defaults provided.
-- **LOG_MASK_STYLE**: Style for masking sensitive data. Default is "partially".
-- **LOG_MASK_CUSTOM_STYLE**: Custom style for masking if `LOG_MASK_STYLE` is set to "custom". Default is just the data itself.
-- **LOG_MIDDLEWARE_ENABLED**: Enable or disable the logging middleware. Default is True.
-- **LOG_EXCLUDED_HEADERS**: List of request headers to exclude from logging. Default is ["Authorization"].
-- **LOG_USER_ID_FIELD**: Field name for user ID. Default is "id".
-- **LOG_USER_EMAIL_FIELD**: Field name for user email. Default is "email".
+- `LOG_MAX_STR_LEN`: Maximum string length before data is abridged. Default is `200`.
+- `LOG_MAX_LIST_LEN`: Maximum list length before data is abridged. Default is `10`.
+- `LOG_EXCLUDED_ENDPOINTS`: List of endpoints to exclude from logging. Default is an `empty list`.
+- `LOG_SENSITIVE_KEYS`: Regex patterns for keys which contain sensitive data. Defaults `DEFAULT_SENSITIVE_KEYS`.
+- `LOG_MASK_STYLE`: Style for masking sensitive data. Default is `"partially"`.
+- `LOG_MIDDLEWARE_ENABLED`: Enable or disable the logging middleware. Default is `True`.
+- `LOG_EXCLUDED_HEADERS`: List of request headers to exclude from logging. Defaults `DEFAULT_SENSITIVE_HEADERS`.
+- `LOG_USER_ID_FIELD`: Field name for user ID. Default is `"id"`.
+- `LOG_USER_EMAIL_FIELD`: Field name for user email. Default is `"email"`.
+- `LOG_MAX_DEPTH`: Maximum depth for data to be logged. Default is `4`.
+
+Note:
+- All settings are imported from `django_google_structured_logger.settings`.
+
+
+### Other Notes:
+- `extra` kwargs passed to logger, for example:
+  ```python
+  logger.info("some message", extra={"some_key": "some_data}
+  ```
+  will be logged as structured data in the `jsonPayload` field in Google Cloud Logging.
+  Any data passed to extra kwargs will not be abridged or masked.
+- `extra` kwargs passed to logger may override any default fields set by `GoogleFormatter`.
+
 
 ### Conclusion:
 

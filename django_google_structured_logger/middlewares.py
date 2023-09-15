@@ -3,9 +3,9 @@ import logging
 import re
 import uuid
 from copy import deepcopy
-from typing import Any, OrderedDict
+from typing import Any, Dict, List, Optional, Union
 
-from django.http import HttpRequest, HttpResponse  # type: ignore
+from django.http import HttpRequest, HttpResponse
 
 from . import settings
 from .storages import RequestStorage, _current_request
@@ -13,26 +13,46 @@ from .storages import RequestStorage, _current_request
 logger = logging.getLogger(__name__)
 
 
-class SetRequestToLoggerMiddleware:
+class SetUserContextMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        user = request.user
+
+        _current_request.set(
+            RequestStorage(
+                user_id=self._get_user_attribute(user, settings.LOG_USER_ID_FIELD),
+                user_display_field=self._get_user_attribute(
+                    user, settings.LOG_USER_DISPLAY_FIELD
+                ),
+                uuid=str(uuid.uuid4()),
+            )
+        )
+        return response
+
+    @staticmethod
+    def _get_user_attribute(user, attribute) -> Any:
+        return getattr(user, attribute, None)
+
+
+class LogRequestAndResponseMiddleware:
     """Middleware for logging requests and responses with sensitive data masked."""
 
     def __init__(self, get_response):
-        # One-time configuration and initialization.
         self.get_response = get_response
         self.request_body = None
+        self.log_excluded_headers_set = set(
+            map(str.lower, settings.LOG_EXCLUDED_HEADERS)
+        )
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        # Early exit if logging middleware is disabled
         if not settings.LOG_MIDDLEWARE_ENABLED:
             return self.get_response(request)
 
-        # Code to be executed for each request before
-        # the view (and later middleware) are called.
-
         self.request_body = getattr(request, "body", None)
         response = self.get_response(request)
-        # Code to be executed for each request/response after
-        # the view is called.
         self.process_request(request)
         self.process_response(request, response)
         return response
@@ -48,23 +68,29 @@ class SetRequestToLoggerMiddleware:
         if self._is_ignored(request):
             return request
 
-        user_id = lambda: self._get_user_id(request)  # noqa
-        user_email = lambda: self._get_user_email(request)  # noqa
-        request_uuid = str(uuid.uuid4())
-
         try:
-            _current_request.set(
-                RequestStorage(
-                    user_id=user_id, user_email=user_email, uuid=request_uuid
-                )
-            )
-
-            request_data = self._get_request_data(request)
-            request_method = request_data["request"]["method"]
-            request_path = request_data["request"]["path"]
+            path = self._empty_value_none(getattr(request, "path", None))
+            method = self._empty_value_none(getattr(request, "method", None))
+            request_data = {
+                "request": {
+                    "body": self._get_request_body(request),
+                    "query_params": self._empty_value_none(
+                        getattr(request, "GET", None)
+                    ),
+                    "content_type": self._empty_value_none(
+                        getattr(request, "content_type", None)
+                    ),
+                    "method": method,
+                    "path": path,
+                    "headers": self._empty_value_none(
+                        self._exclude_keys(getattr(request, "headers", None))
+                    ),
+                },
+                "first_operation": True,
+            }
 
             logger.info(
-                f"Request {request_method} {request_path}",
+                f"Request {method} {path}",
                 extra=request_data,
             )
         except Exception as exc:
@@ -83,10 +109,8 @@ class SetRequestToLoggerMiddleware:
 
         try:
             response_data = self._abridge(getattr(response, "data", None))
-            response_status_code = getattr(response, "status_code", "Unknown STATUS")
-            response_headers = self._exclude_keys(
-                getattr(response, "headers", None), settings.LOG_EXCLUDED_HEADERS
-            )
+            response_status_code = getattr(response, "status_code", 0)
+            response_headers = self._exclude_keys(getattr(response, "headers", None))
 
             data = {
                 "response": {
@@ -110,9 +134,9 @@ class SetRequestToLoggerMiddleware:
 
         return response
 
-    def _abridge(self, data: Any) -> Any:
+    def _abridge(self, data: Any, current_depth: int = 0) -> Any:
         """
-        Abridge data based on length settings.
+        Abridge data based on length settings and depth.
 
         Example:
         Input: {"name": "Very long name..."}
@@ -120,19 +144,28 @@ class SetRequestToLoggerMiddleware:
         """
         max_str_len = settings.LOG_MAX_STR_LEN
         max_list_len = settings.LOG_MAX_LIST_LEN
+        max_depth = settings.LOG_MAX_DEPTH
+
+        # Check for the depth threshold
+        if current_depth > max_depth:
+            return "..DEPTH EXCEEDED"
 
         if isinstance(data, dict):
-            data = {k: self._abridge(v) for k, v in data.items() if k != "meta"}
+            data = {
+                k: self._abridge(v, current_depth + 1)
+                for k, v in data.items()
+                if k != "meta"
+            }
         elif isinstance(data, str) and max_str_len and len(data) > max_str_len:
-            return f"{data[:max_str_len]}..SHORTENED"
+            return "{value}..SHORTENED".format(value=data[:max_str_len])
         elif isinstance(data, list) and max_list_len:
-            return [self._abridge(item) for item in data[:max_list_len]]
+            return [
+                self._abridge(item, current_depth + 1) for item in data[:max_list_len]
+            ]
         return data
 
     @staticmethod
-    def _empty_value_none(
-        obj: dict | OrderedDict | str | None,
-    ) -> dict | OrderedDict | str | None:
+    def _empty_value_none(obj: Union[Dict, str, None]) -> Union[Dict, str, None]:
         """
         Returns None if the value is empty.
 
@@ -143,9 +176,7 @@ class SetRequestToLoggerMiddleware:
         return obj if bool(obj) else None
 
     @staticmethod
-    def _mask_sensitive_data(
-        obj: Any,
-    ) -> str | dict | None:
+    def _mask_sensitive_data(obj: Any) -> Union[str, Dict, None]:
         """Mask sensitive data in a dictionary based on specified keys and masking style.
 
         Args:
@@ -159,9 +190,8 @@ class SetRequestToLoggerMiddleware:
             obj = {"password": "my_secret_pass"}
 
             Returns based on style:
-            - complete: {"password": "*********MASKED*********"}
-            - partial: {"password": "my_s*****MASKED*****pass"}
-            - custom: {"password": "my...ss"}
+            - complete: {"password": "...FULL_MASKED..."}
+            - partial: {"password": "my_s...MASKED...pass"}
         """
         if not isinstance(obj, dict):
             return obj
@@ -173,19 +203,33 @@ class SetRequestToLoggerMiddleware:
         mask_style = settings.LOG_MASK_STYLE
 
         def get_mask_function(style):
-            if style == "complete":
-                return lambda value: "*********MASKED*********"
-            elif style == "partial":
-                return lambda value: f"{value[:4]}*****MASKED*****{value[-4:]}"
-            elif style == "custom":
-                custom_style = settings.LOG_MASK_CUSTOM_STYLE
-                return lambda value: custom_style.format(data=value)
-            else:
-                return lambda value: value
+            def complete_mask(value):
+                return "...FULL_MASKED..."
+
+            def partial_mask(value):
+                length = len(value)
+                if length <= 4:
+                    return complete_mask(value)
+                slice_value = min(4, length // 4)
+                return "{prefix_value}...MASKED...{suffix_value}".format(
+                    prefix_value=value[:slice_value], suffix_value=value[-slice_value:]
+                )
+
+            mask_styles = {
+                "complete": complete_mask,
+                "partial": partial_mask,
+            }
+            _mask_style = mask_styles.get(style)
+            if _mask_style is None:
+                logger.warning(
+                    f"Invalid mask style {style}. Using default style 'partial'."
+                )
+                _mask_style = partial_mask
+            return _mask_style
 
         mask_func = get_mask_function(mask_style)
 
-        def _mask(_sensitive_keys: list[str]):
+        def _mask(_sensitive_keys: List[str]):
             for sensitive_key in _sensitive_keys:
                 r = re.compile(sensitive_key, flags=re.IGNORECASE)
                 match_keys = filter(r.match, data_keys)
@@ -196,10 +240,7 @@ class SetRequestToLoggerMiddleware:
 
         return data
 
-    @staticmethod
-    def _exclude_keys(
-        obj: dict | OrderedDict | None, keys_to_exclude: list[str]
-    ) -> dict | None:
+    def _exclude_keys(self, obj: Optional[Dict]) -> Optional[Dict]:
         """
         Exclude specific keys from a dictionary.
 
@@ -209,35 +250,13 @@ class SetRequestToLoggerMiddleware:
         """
         if obj is None:
             return None
-        keys_to_exclude_set = set(map(str.lower, keys_to_exclude))
-        return {k: v for k, v in obj.items() if k.lower() not in keys_to_exclude_set}
-
-    def _get_request_data(self, request) -> dict[str, Any]:
-        """
-        Extract necessary request data for logging.
-
-        Example:
-        Input: Django request object with GET method
-        Output: {"request": {"method": "GET", ...}}
-        """
         return {
-            "request": {
-                "body": self._get_request_body(request),
-                "query_params": self._empty_value_none(getattr(request, "GET", None)),
-                "content_type": self._empty_value_none(
-                    getattr(request, "content_type", None)
-                ),
-                "method": self._empty_value_none(getattr(request, "method", None)),
-                "path": self._empty_value_none(getattr(request, "path", None)),
-                "headers": self._empty_value_none(
-                    self._exclude_keys(
-                        getattr(request, "headers", None), settings.LOG_EXCLUDED_HEADERS
-                    )
-                ),
-            }
+            k: v
+            for k, v in obj.items()
+            if k.lower() not in self.log_excluded_headers_set
         }
 
-    def _get_request_body(self, request) -> str | dict | None:
+    def _get_request_body(self, request) -> Union[str, Dict, None]:
         """
         Extract request body and mask sensitive data.
 
@@ -254,39 +273,15 @@ class SetRequestToLoggerMiddleware:
             except Exception:  # noqa
                 return self._abridge(body_str)
 
-        match content_type:
-            case "multipart/form-data":
-                return "The image was uploaded to the server"
-            case "application/json":
-                return self._mask_sensitive_data(decode_and_abridge(self.request_body))
-            case "text/plain":
-                return self._mask_sensitive_data(self._abridge(self.request_body))
-            case _:
-                return self._mask_sensitive_data(content_type)
-
-    def _get_user_id(self, request) -> Any:
-        """
-        Extract user ID from the request.
-
-        Example:
-        Input: Django request object with user ID 123
-        Output: 123
-        """
-        return self._empty_value_none(
-            getattr(request.user, settings.LOG_USER_ID_FIELD, None)
-        )
-
-    def _get_user_email(self, request) -> Any:
-        """
-        Extract user email from the request.
-
-        Example:
-        Input: Django request object with user email "test@example.com"
-        Output: "test@example.com"
-        """
-        return self._empty_value_none(
-            getattr(request.user, settings.LOG_USER_EMAIL_FIELD, None)
-        )
+        # Using traditional conditional checks instead of `match` for Python < 3.10 compatibility
+        if content_type == "multipart/form-data":
+            return "The image was uploaded to the server"
+        elif content_type == "application/json":
+            return self._mask_sensitive_data(decode_and_abridge(self.request_body))
+        elif content_type == "text/plain":
+            return self._mask_sensitive_data(self._abridge(self.request_body))
+        else:
+            return self._mask_sensitive_data(content_type)
 
     @staticmethod
     def _is_ignored(request) -> bool:

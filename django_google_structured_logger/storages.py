@@ -1,19 +1,19 @@
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Callable
+from typing import Optional
 
 
 @dataclass(frozen=True)
 class RequestStorage:
-    user_id: Callable[[], int]
-    user_email: Callable[[], str]
     uuid: str
+    user_id: Optional[int] = None
+    user_display_field: Optional[str] = None
 
 
-_current_request: ContextVar[RequestStorage | None] = ContextVar(
+_current_request: ContextVar[Optional[RequestStorage]] = ContextVar(
     "_current_request", default=None
 )
 
 
-def get_current_request() -> RequestStorage | None:
+def get_current_request() -> Optional[RequestStorage]:
     return _current_request.get()
