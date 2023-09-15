@@ -92,7 +92,7 @@ These are the settings that can be customized for the middleware:
 - `LOG_MIDDLEWARE_ENABLED`: Enable or disable the logging middleware. Default is `True`.
 - `LOG_EXCLUDED_HEADERS`: List of request headers to exclude from logging. Defaults `DEFAULT_SENSITIVE_HEADERS`.
 - `LOG_USER_ID_FIELD`: Field name for user ID. Default is `"id"`.
-- `LOG_USER_EMAIL_FIELD`: Field name for user email. Default is `"email"`.
+- `LOG_USER_DISPLAY_FIELD`: Field name for user email. Default is `"email"`.
 - `LOG_MAX_DEPTH`: Maximum depth for data to be logged. Default is `4`.
 
 Note:
