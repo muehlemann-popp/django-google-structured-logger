@@ -119,7 +119,7 @@ These are the settings that can be customized for the middleware:
 - `LOG_MAX_DEPTH`: Maximum depth for data to be logged. Default is `4`.
 
 Note:
-- All settings are imported from `django_google_structured_logger.settings`.
+- All settings are imported from `django_google_structured_logger.constants`.
 
 
 ### Other Notes:
