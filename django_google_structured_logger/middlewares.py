@@ -18,19 +18,18 @@ class SetUserContextMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        response = self.get_response(request)
-        user = request.user
-
         _current_request.set(
             RequestStorage(
-                user_id=self._get_user_attribute(user, settings.LOG_USER_ID_FIELD),
-                user_display_field=self._get_user_attribute(
-                    user, settings.LOG_USER_DISPLAY_FIELD
-                ),
                 uuid=str(uuid.uuid4()),
+                user_id=lambda: self._get_user_attribute(
+                    request.user, settings.LOG_USER_ID_FIELD
+                ),
+                user_display_field=lambda: self._get_user_attribute(
+                    request.user, settings.LOG_USER_DISPLAY_FIELD
+                ),
             )
         )
-        return response
+        return self.get_response(request)
 
     @staticmethod
     def _get_user_attribute(user, attribute) -> Any:

@@ -40,8 +40,10 @@ class GoogleFormatter(jsonlogger.JsonFormatter):
     def _set_labels(self, log_record: Dict, current_request: Optional[RequestStorage]):
         """Set the Google labels in the log record."""
         labels = {
-            "user_id": getattr(current_request, "user_id", None),
-            "user_display_field": getattr(current_request, "user_display_field", None),
+            "user_id": current_request.user_id() if current_request else None,
+            "user_display_field": current_request.user_display_field()
+            if current_request
+            else None,
             **log_record.get(self.google_labels_field, {}),
             **log_record.pop("labels", {}),
         }
@@ -54,14 +56,15 @@ class GoogleFormatter(jsonlogger.JsonFormatter):
         """Set the Google operation details in the log record."""
         operation = {
             "id": getattr(current_request, "uuid", None),
-            **{
-                k: v
-                for k, v in log_record.items()
-                if k in ["first_operation", "last_operation"] and v
-            },
             **log_record.get(self.google_operation_field, {}),
             **log_record.pop("operation", {}),
         }
+
+        if "first_operation" in log_record:
+            operation["first"] = log_record.pop("first_operation")
+        if "last_operation" in log_record:
+            operation["last"] = log_record.pop("last_operation")
+
         log_record[self.google_operation_field] = operation
 
     def _set_source_location(self, log_record: Dict, record):

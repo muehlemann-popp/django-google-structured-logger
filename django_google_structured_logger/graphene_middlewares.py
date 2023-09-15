@@ -14,15 +14,15 @@ logger = logging.getLogger(__name__)
 
 class GrapheneSetUserContextMiddleware:
     def resolve(self, next, root, info, **args):
-        user = info.context.user
-
         _current_request.set(
             RequestStorage(
-                user_id=self._get_user_attribute(user, settings.LOG_USER_ID_FIELD),
-                user_display_field=self._get_user_attribute(
-                    user, settings.LOG_USER_DISPLAY_FIELD
-                ),
                 uuid=str(uuid.uuid4()),
+                user_id=lambda: self._get_user_attribute(
+                    info.context.user, settings.LOG_USER_ID_FIELD
+                ),
+                user_display_field=lambda: self._get_user_attribute(
+                    info.context.user, settings.LOG_USER_DISPLAY_FIELD
+                ),
             )
         )
 

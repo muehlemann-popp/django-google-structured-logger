@@ -25,32 +25,30 @@ DEFAULT_SENSITIVE_KEYS = [
     "^otp.*",  # One-Time Passwords or related values
 ]
 
-DEFAULT_SENSITIVE_HEADERS = (
-    [
-        "Authorization",  # Tokens and credentials
-        "Cookie",  # User session identifiers
-        "Set-Cookie",  # Server set session identifiers
-        "X-API-Key",  # API keys
-        "X-CSRFToken",  # CSRF tokens
-        "Proxy-Authorization",  # Credentials for a proxy connection
-        "If-None-Match",  # Can be used for cache fingerprinting
-        "Server",  # Can reveal specifics about the server
-        "WWW-Authenticate",  # Authentication method details
-        "X-Correlation-ID",  # Correlation IDs for logging
-        "X-Frame-Options",  # Security-related header
-        "Strict-Transport-Security",  # Security-related header
-        "X-XSS-Protection",  # Security-related header
-        "X-Content-Type-Options",  # Security-related header
-        "X-Download-Options",  # Security-related header
-        "X-Permitted-Cross-Domain-Policies",  # Security-related header
-    ],
-)
+DEFAULT_SENSITIVE_HEADERS = [
+    "Authorization",  # Tokens and credentials
+    "Cookie",  # User session identifiers
+    "Set-Cookie",  # Server set session identifiers
+    "X-API-Key",  # API keys
+    "X-CSRFToken",  # CSRF tokens
+    "Proxy-Authorization",  # Credentials for a proxy connection
+    "If-None-Match",  # Can be used for cache fingerprinting
+    "Server",  # Can reveal specifics about the server
+    "WWW-Authenticate",  # Authentication method details
+    "X-Correlation-ID",  # Correlation IDs for logging
+    "X-Frame-Options",  # Security-related header
+    "Strict-Transport-Security",  # Security-related header
+    "X-XSS-Protection",  # Security-related header
+    "X-Content-Type-Options",  # Security-related header
+    "X-Download-Options",  # Security-related header
+    "X-Permitted-Cross-Domain-Policies",  # Security-related header
+]
 
 LOG_MAX_STR_LEN = getattr(settings, "LOG_MAX_STR_LEN", 200)
 LOG_MAX_LIST_LEN = getattr(settings, "LOG_MAX_LIST_LEN", 10)
 LOG_EXCLUDED_ENDPOINTS = getattr(settings, "LOG_EXCLUDED_ENDPOINTS", [])
 LOG_SENSITIVE_KEYS = getattr(settings, "LOG_SENSITIVE_KEYS", DEFAULT_SENSITIVE_KEYS)
-LOG_MASK_STYLE = getattr(settings, "LOG_MASK_STYLE", "partially")
+LOG_MASK_STYLE = getattr(settings, "LOG_MASK_STYLE", "partial")
 LOG_MIDDLEWARE_ENABLED = getattr(settings, "LOG_MIDDLEWARE_ENABLED", True)
 LOG_EXCLUDED_HEADERS = getattr(
     settings, "LOG_EXCLUDED_HEADERS", DEFAULT_SENSITIVE_HEADERS
