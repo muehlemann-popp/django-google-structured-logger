@@ -214,6 +214,8 @@ class LogRequestAndResponseMiddleware:
                 return "...FULL_MASKED..."
 
             def partial_mask(value):
+                if not value:
+                    return value
                 length = len(value)
                 if length <= 4:
                     return complete_mask(value)
