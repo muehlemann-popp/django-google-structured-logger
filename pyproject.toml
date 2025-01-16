@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "django-google-structured-logger"
-version = "0.1.0"
+version = "2.8.9"
 description = "Plugin for django to support  Google Structured Logger"
 authors = ["Farruh Sheripov <sheripov.farruh@gmail.com>"]
 readme = "README.md"
