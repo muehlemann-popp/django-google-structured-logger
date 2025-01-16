@@ -1,5 +1,9 @@
 ## Django Google Structured Logger
 
+[![PyPI version](https://badge.fury.io/py/django-google-structured-logger.svg)](https://badge.fury.io/py/django-google-structured-logger)
+[![Python Versions](https://img.shields.io/pypi/pyversions/django-google-structured-logger)](https://pypi.org/project/django-google-structured-logger/)
+[![Django Versions](https://img.shields.io/pypi/djversions/django-google-structured-logger)](https://pypi.org/project/django-google-structured-logger/)
+
 **Django Google Structured Logger** is a Django middleware designed to capture and log details from incoming requests and outgoing responses. It offers features to mask sensitive data, set default fields for Google Cloud Logging, and structure logs in a detailed and organized manner.
 
 ## Contents
@@ -17,6 +21,16 @@
 4. **Configurable Settings**: Customize log behavior through Django settings.
 
 ### Usage:
+
+#### Installation
+
+You can install the package using pip:
+
+```bash
+pip install django-google-structured-logger
+```
+
+#### Configuration
 
 1. Add `GoogleFormatter` to your Django's `LOGGING` setting.
    Example:
