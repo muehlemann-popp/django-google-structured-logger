@@ -22,12 +22,17 @@ class GoogleFormatter(jsonlogger.JsonFormatter):
         List of associated JSON fields:
         https://cloud.google.com/logging/docs/structured-logging#default-parsers
 
+        Traces and metrics:
+        https://cloud.google.com/trace/docs/setup/python-ot
+
         This method sets these fields if present:
          - severity
          - labels
          - operation
          - sourceLocation
-         - trace (for correlation with Cloud Trace)
+         - trace (string) - REST resource name of trace
+         - spanId (string) - Trace span ID
+         - traceSampled (boolean) - W3C trace-context sampling decision
         """
         super().add_fields(log_record, record, message_dict)
 
@@ -35,14 +40,8 @@ class GoogleFormatter(jsonlogger.JsonFormatter):
 
         log_record["severity"] = record.levelname
 
-        # Trace correlation
-        trace_id = getattr(record, "otelTraceID", None)
-        if trace_id is not None:
-            project_id = getattr(settings, "GOOGLE_CLOUD_PROJECT", None)
-            if project_id is not None:
-                log_record[self.google_trace_field] = f"projects/{project_id}/traces/{trace_id}"
-
         # Update specialized fields
+        self._set_trace_correlation(log_record, record)
         self._set_labels(log_record, current_request)
         self._set_operation(log_record, current_request)
         self._set_source_location(log_record, record)
@@ -81,6 +80,20 @@ class GoogleFormatter(jsonlogger.JsonFormatter):
             "function": record.funcName,
             "logger_name": record.name,
         }
+
+    def _set_trace_correlation(self, log_record: Dict, record):
+        """Set the Google trace correlation fields in the log record."""
+        trace_id = getattr(record, "otelTraceID", None)
+        span_id = getattr(record, "otelSpanID", None)
+        trace_sampled = getattr(record, "otelTraceSampled", None)
+
+        project_id = getattr(settings, "GOOGLE_CLOUD_PROJECT", None)
+        if trace_id is not None and project_id is not None:
+            log_record[self.google_trace_field] = f"projects/{project_id}/traces/{trace_id}"
+            if span_id is not None:
+                log_record["spanId"] = span_id
+            if trace_sampled is not None:
+                log_record["traceSampled"] = bool(trace_sampled)
 
     @staticmethod
     def stringify_values(dict_to_convert: Dict):
