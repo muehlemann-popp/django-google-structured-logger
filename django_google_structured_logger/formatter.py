@@ -1,5 +1,6 @@
 from typing import Dict, Optional
 
+from django.conf import settings
 from pythonjsonlogger import jsonlogger
 
 from .storages import RequestStorage, get_current_request
@@ -9,6 +10,7 @@ class GoogleFormatter(jsonlogger.JsonFormatter):
     google_source_location_field = "logging.googleapis.com/sourceLocation"
     google_operation_field = "logging.googleapis.com/operation"
     google_labels_field = "logging.googleapis.com/labels"
+    google_trace_field = "logging.googleapis.com/trace"
 
     def add_fields(self, log_record: Dict, record, message_dict: Dict):
         """
@@ -25,6 +27,7 @@ class GoogleFormatter(jsonlogger.JsonFormatter):
          - labels
          - operation
          - sourceLocation
+         - trace (for correlation with Cloud Trace)
         """
         super().add_fields(log_record, record, message_dict)
 
@@ -32,7 +35,14 @@ class GoogleFormatter(jsonlogger.JsonFormatter):
 
         log_record["severity"] = record.levelname
 
-        # Update each specialized field
+        # Trace correlation
+        trace_id = getattr(record, "otelTraceID", None)
+        if trace_id is not None:
+            project_id = getattr(settings, "GOOGLE_CLOUD_PROJECT", None)
+            if project_id is not None:
+                log_record[self.google_trace_field] = f"projects/{project_id}/traces/{trace_id}"
+
+        # Update specialized fields
         self._set_labels(log_record, current_request)
         self._set_operation(log_record, current_request)
         self._set_source_location(log_record, record)
@@ -41,18 +51,14 @@ class GoogleFormatter(jsonlogger.JsonFormatter):
         """Set the Google labels in the log record."""
         labels = {
             "user_id": current_request.user_id() if current_request else None,
-            "user_display_field": current_request.user_display_field()
-            if current_request
-            else None,
+            "user_display_field": current_request.user_display_field() if current_request else None,
             **log_record.get(self.google_labels_field, {}),
             **log_record.pop("labels", {}),
         }
         self.stringify_values(labels)
         log_record[self.google_labels_field] = labels
 
-    def _set_operation(
-        self, log_record: Dict, current_request: Optional[RequestStorage]
-    ):
+    def _set_operation(self, log_record: Dict, current_request: Optional[RequestStorage]):
         """Set the Google operation details in the log record."""
         operation = {
             "id": getattr(current_request, "uuid", None),
