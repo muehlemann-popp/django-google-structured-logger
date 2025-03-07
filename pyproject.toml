@@ -1,24 +1,29 @@
-[tool.poetry]
+[project]
 name = "django-google-structured-logger"
 version = "2.8.10"
 description = "Plugin for django to support  Google Structured Logger"
-authors = ["Farruh Sheripov <sheripov.farruh@gmail.com>"]
+authors = [{ name = "Farruh Sheripov", email = "sheripov.farruh@gmail.com" }]
+requires-python = ">=3.9"
 readme = "README.md"
-packages = [{include = "django_google_structured_logger"}]
+dependencies = [
+    "python-json-logger>=2.0.7,<3",
+    "contextvars~=2.4",
+    "django>=3,<6",
+    "setuptools-scm>=7.1.0,<8",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9"
-python-json-logger = "^2.0.7"
-contextvars = "^2.4"
-django = ">=3,<6"
-setuptools-scm = "^7.1.0"
+[dependency-groups]
+dev = ["pre-commit>=4.1.0,<5"]
 
-[tool.poetry.group.dev.dependencies]
-pre-commit = "^4.1.0"
+[tool.hatch.build.targets.sdist]
+include = ["django_google_structured_logger"]
+
+[tool.hatch.build.targets.wheel]
+include = ["django_google_structured_logger"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.mypy]
 mypy_path = "./src"
