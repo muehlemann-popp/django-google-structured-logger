@@ -2,6 +2,9 @@ from django.conf import settings
 
 from django_google_structured_logger.constants import DEFAULT_SENSITIVE_HEADERS, DEFAULT_SENSITIVE_KEYS
 
+LOG_FORMATTER_CLASS = getattr(
+    settings, "LOG_FORMATTER_CLASS", "django_google_structured_logger.formatter.StandardJSONFormatter"
+)
 LOG_MAX_STR_LEN = getattr(settings, "LOG_MAX_STR_LEN", 200)
 LOG_MAX_LIST_LEN = getattr(settings, "LOG_MAX_LIST_LEN", 10)
 LOG_EXCLUDED_ENDPOINTS = getattr(settings, "LOG_EXCLUDED_ENDPOINTS", [])

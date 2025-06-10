@@ -4,7 +4,7 @@ version: "3"
 
 vars:
   GITHUB_REPOSITORY_OWNER: muehlemann-popp
-  GITHUB_REPOSITORY: django-cookiejwt
+  GITHUB_REPOSITORY: django-google-structured-logger
   GIT_SHA:
     sh: git rev-parse --short=8 HEAD
   CURRENT_DATETIME:

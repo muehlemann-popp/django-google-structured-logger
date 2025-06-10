@@ -32,15 +32,64 @@ pip install django-google-structured-logger
 
 #### Configuration
 
-1. Add `GoogleFormatter` to your Django's `LOGGING` setting.
-   Example:
+1. Add a formatter to your Django's `LOGGING` setting.
+
+   **For standard JSON logging:**
    ```python
     LOGGING = {
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {
             "json": {
-                "()": "django_google_structured_logger.formatter.GoogleFormatter",
+                "()": "django_google_structured_logger.formatter.StandardJSONFormatter",
+            },
+        },
+        "handlers": {
+            "console": {
+                "level": "INFO",
+                "class": "logging.StreamHandler",
+            },
+            "json-handler": {
+                "class": "logging.StreamHandler",
+                "formatter": "json",
+            },
+        },
+        "root": {
+            "handlers": [env.str("DJANGO_LOG_HANDLER", "json-handler")],
+            "level": env.str("ROOT_LOG_LEVEL", "INFO"),
+        },
+        "loggers": {
+            "()": {
+                "handlers": [env.str("DJANGO_LOG_HANDLER", "json-handler")],
+                "level": env.str("DJANGO_LOG_LEVEL", "INFO"),
+            },
+            "django": {
+                "handlers": [env.str("DJANGO_LOG_HANDLER", "json-handler")],
+                "level": env.str("DJANGO_LOG_LEVEL", "INFO"),
+                "propagate": False,
+            },
+            "django.server": {
+                "handlers": [env.str("DJANGO_LOG_HANDLER", "json-handler")],
+                "level": env.str("DJANGO_SERVER_LEVEL", "ERROR"),
+                "propagate": False,
+            },
+            "django.request": {
+                "handlers": [env.str("DJANGO_LOG_HANDLER", "json-handler")],
+                "level": env.str("DJANGO_REQUEST_LEVEL", "ERROR"),
+                "propagate": False,
+            },
+        },
+    }
+   ```
+
+   **For Google Cloud Logging integration:**
+   ```python
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "google": {
+                "()": "django_google_structured_logger.formatter.GoogleCloudFormatter",
             },
         },
         "handlers": {
@@ -50,7 +99,7 @@ pip install django-google-structured-logger
             },
             "google-json-handler": {
                 "class": "logging.StreamHandler",
-                "formatter": "json",
+                "formatter": "google",
             },
         },
         "root": {
@@ -80,7 +129,17 @@ pip install django-google-structured-logger
         },
     }
    ```
-2. Add `SetRequestToLoggerMiddleware` to your Django's `MIDDLEWARE` setting.
+
+   Alternatively, you can configure the formatter class via Django settings:
+   ```python
+   # For standard JSON logging (default)
+   LOG_FORMATTER_CLASS = "django_google_structured_logger.formatter.StandardJSONFormatter"
+   
+   # For Google Cloud Logging
+   LOG_FORMATTER_CLASS = "django_google_structured_logger.formatter.GoogleCloudFormatter"
+   ```
+
+2. Add middleware to your Django's `MIDDLEWARE` setting.
 
     Django middleware:
     ```python
@@ -104,13 +163,15 @@ pip install django-google-structured-logger
 
 ### Key Components:
 
-#### 1. middleware.py
+#### 1. middlewares.py
 
-- **SetRequestToLoggerMiddleware**: This class contains methods to process incoming requests and outgoing responses and then log them. It supports features like abridging lengthy data and masking sensitive information.
+- **SetUserContextMiddleware**: Sets user context information for logging throughout the request lifecycle.
+- **LogRequestAndResponseMiddleware**: Processes incoming requests and outgoing responses and logs them. It supports features like abridging lengthy data and masking sensitive information.
 
 #### 2. formatter.py
 
-- **GoogleFormatter**: Extends `jsonlogger.JsonFormatter` to format logs specifically for Google Cloud Logging. It sets default fields such as severity, labels, operation, and source location based on Google's logging standards.
+- **StandardJSONFormatter**: A universal JSON log formatter that creates structured logs with fields like severity, source_location, labels, operation, and http_request/http_response. Suitable for any logging system that accepts JSON format.
+- **GoogleCloudFormatter**: Extends `StandardJSONFormatter` to format logs specifically for Google Cloud Logging. It remaps standard fields to Google Cloud's specific field names (e.g., `logging.googleapis.com/sourceLocation`) and adds trace correlation support.
 
 #### 3. settings.py
 
@@ -121,11 +182,12 @@ pip install django-google-structured-logger
 
 These are the settings that can be customized for the middleware:
 
+- `LOG_FORMATTER_CLASS`: Formatter class to use. Default is `"django_google_structured_logger.formatter.StandardJSONFormatter"`.
 - `LOG_MAX_STR_LEN`: Maximum string length before data is abridged. Default is `200`.
 - `LOG_MAX_LIST_LEN`: Maximum list length before data is abridged. Default is `10`.
 - `LOG_EXCLUDED_ENDPOINTS`: List of endpoints to exclude from logging. Default is an `empty list`.
 - `LOG_SENSITIVE_KEYS`: Regex patterns for keys which contain sensitive data. Defaults `DEFAULT_SENSITIVE_KEYS`.
-- `LOG_MASK_STYLE`: Style for masking sensitive data. Default is `"partially"`.
+- `LOG_MASK_STYLE`: Style for masking sensitive data. Default is `"partial"`.
 - `LOG_MIDDLEWARE_ENABLED`: Enable or disable the logging middleware. Default is `True`.
 - `LOG_EXCLUDED_HEADERS`: List of request headers to exclude from logging. Defaults `DEFAULT_SENSITIVE_HEADERS`.
 - `LOG_USER_ID_FIELD`: Field name for user ID. Default is `"id"`.
@@ -143,11 +205,11 @@ Note:
   ```
   will be logged as structured data in the `jsonPayload` field in Google Cloud Logging.
   Any data passed to extra kwargs will not be abridged or masked.
-- `extra` kwargs passed to logger may override any default fields set by `GoogleFormatter`.
+- `extra` kwargs passed to logger may override any default fields set by the formatters.
 
 
 ### Conclusion:
 
-**SetRequestToLoggerMiddleware** is a comprehensive solution for those seeking enhanced logging capabilities in their Django projects, with particular attention to sensitive data protection and compatibility with Google Cloud Logging.
+**Django Google Structured Logger** is a comprehensive solution for those seeking enhanced logging capabilities in their Django projects, with particular attention to sensitive data protection and compatibility with Google Cloud Logging.
 
 To get started, integrate the provided middleware, formatter, and settings into your Django project, customize as needed, and enjoy advanced logging capabilities!

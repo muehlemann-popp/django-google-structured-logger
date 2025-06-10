@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.handlers.wsgi import WSGIRequest
 from django.test import Client, RequestFactory
 
 from django_google_structured_logger.storages import RequestStorage, _current_request
@@ -11,19 +12,19 @@ User = get_user_model()
 
 
 @pytest.fixture
-def request_factory():
+def request_factory() -> RequestFactory:
     """Django request factory for creating mock requests."""
     return RequestFactory()
 
 
 @pytest.fixture
-def client():
+def client() -> Client:
     """Django test client."""
     return Client()
 
 
 @pytest.fixture
-def mock_user():
+def mock_user() -> Mock:
     """Mock authenticated user."""
     user = Mock()
     user.id = 1
@@ -35,7 +36,7 @@ def mock_user():
 
 
 @pytest.fixture
-def anonymous_user():
+def anonymous_user() -> Mock:
     """Mock anonymous user."""
     user = Mock()
     user.id = None
@@ -47,7 +48,7 @@ def anonymous_user():
 
 
 @pytest.fixture
-def authenticated_request(request_factory, mock_user):
+def authenticated_request(request_factory: RequestFactory, mock_user: Mock) -> WSGIRequest:
     """HTTP request with authenticated user."""
     request = request_factory.get("/test/")
     request.user = mock_user
@@ -55,7 +56,7 @@ def authenticated_request(request_factory, mock_user):
 
 
 @pytest.fixture
-def anonymous_request(request_factory, anonymous_user):
+def anonymous_request(request_factory: RequestFactory, anonymous_user: Mock) -> WSGIRequest:
     """HTTP request with anonymous user."""
     request = request_factory.get("/test/")
     request.user = anonymous_user
@@ -63,7 +64,7 @@ def anonymous_request(request_factory, anonymous_user):
 
 
 @pytest.fixture
-def post_request_with_data(request_factory, mock_user):
+def post_request_with_data(request_factory: RequestFactory, mock_user: Mock) -> WSGIRequest:
     """POST request with JSON data."""
     data = {"username": "test", "password": "secret123", "email": "test@example.com"}
     request = request_factory.post("/api/login/", data=data, content_type="application/json")
@@ -72,7 +73,7 @@ def post_request_with_data(request_factory, mock_user):
 
 
 @pytest.fixture
-def request_with_sensitive_headers(request_factory, mock_user):
+def request_with_sensitive_headers(request_factory: RequestFactory, mock_user: Mock) -> WSGIRequest:
     """Request with sensitive headers."""
     request = request_factory.get(
         "/api/users/",
@@ -115,7 +116,7 @@ def middleware_settings(settings):
 
 
 @pytest.fixture
-def mock_response():
+def mock_response() -> Mock:
     """Mock HTTP response."""
     response = Mock()
     response.status_code = 200

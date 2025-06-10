@@ -3,9 +3,10 @@ import logging
 import re
 import uuid
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
-from django.http import HttpRequest, HttpResponse
+from django.core.handlers.wsgi import WSGIRequest
+from django.http import HttpResponse
 
 from . import settings
 from .storages import RequestStorage, _current_request
@@ -14,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class SetUserContextMiddleware:
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable):
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: WSGIRequest):
         _current_request.set(
             RequestStorage(
                 uuid=str(uuid.uuid4()),
@@ -28,18 +29,18 @@ class SetUserContextMiddleware:
         return self.get_response(request)
 
     @staticmethod
-    def _get_user_attribute(user, attribute) -> Any:
+    def _get_user_attribute(user, attribute: str) -> Any:
         return getattr(user, attribute, None)
 
 
 class LogRequestAndResponseMiddleware:
     """Middleware for logging requests and responses with sensitive data masked."""
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable):
         self.get_response = get_response
         self.log_excluded_headers_set = set(map(str.lower, settings.LOG_EXCLUDED_HEADERS))
 
-    def __call__(self, request: HttpRequest) -> HttpResponse:
+    def __call__(self, request: WSGIRequest) -> HttpResponse:
         if not settings.LOG_MIDDLEWARE_ENABLED:
             return self.get_response(request)
 
@@ -48,7 +49,7 @@ class LogRequestAndResponseMiddleware:
         self.process_response(request, response)
         return response
 
-    def process_request(self, request):
+    def process_request(self, request: WSGIRequest) -> Optional[WSGIRequest]:
         """
         Log necessary data from the incoming request.
 
@@ -83,7 +84,7 @@ class LogRequestAndResponseMiddleware:
         except Exception as exc:
             logger.exception(exc)
 
-    def process_response(self, request, response):
+    def process_response(self, request: WSGIRequest, response: HttpResponse) -> HttpResponse:
         """
         Log necessary data from the outgoing response.
 
@@ -260,7 +261,7 @@ class LogRequestAndResponseMiddleware:
             return self._mask_sensitive_data(content_type)
 
     @staticmethod
-    def _is_ignored(request) -> bool:
+    def _is_ignored(request: WSGIRequest) -> bool:
         """
         Determine if the request should be ignored based on path.
 

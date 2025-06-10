@@ -103,7 +103,7 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "json": {
-            "()": "django_google_structured_logger.formatter.GoogleFormatter",
+            "()": "django_google_structured_logger.formatter.StandardJSONFormatter",
         },
         "simple": {
             "format": "{levelname} {name} {message}",

@@ -36,7 +36,7 @@ build-backend = "hatchling.build"
 
 [tool.mypy]
 mypy_path = "./src"
-python_version = "3.8"
+python_version = "3.10"
 check_untyped_defs = true
 ignore_missing_imports = true
 warn_unused_ignores = true
@@ -48,7 +48,7 @@ pretty = true
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.settings"
 testpaths = ["tests"]
-addopts = "--cov=django_cookiejwt --cov-report=term-missing --cov-report=xml --cov-report=html"
+addopts = "--cov=django_google_structured_logger --cov-report=term-missing --cov-report=xml --cov-report=html"
 pythonpath = ["."]
 
 [tool.ruff]

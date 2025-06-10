@@ -5,6 +5,7 @@
 *.pyc
 /reports
 /.coverage
+coverage-reports/
 /build
 .idea
 dist
@@ -183,3 +184,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+.vscode/
