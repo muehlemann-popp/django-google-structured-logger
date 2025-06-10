@@ -3,7 +3,7 @@ name = "django-google-structured-logger"
 version = "2.8.10"
 description = "Plugin for django to support  Google Structured Logger"
 authors = [{ name = "Farruh Sheripov", email = "sheripov.farruh@gmail.com" }]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.md"
 dependencies = [
     "python-json-logger>=2.0.7,<3",
@@ -21,6 +21,15 @@ include = ["django_google_structured_logger"]
 [tool.hatch.build.targets.wheel]
 include = ["django_google_structured_logger"]
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.0"
+pytest-django = "^4.11.1"
+pytest-mock = "^3.14.1"
+ruff = "^0.11.13"
+mypy = "^1.16.0"
+django-stubs = "^5.2.0"
+pytest-cov = "^6.1.1"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -36,30 +45,16 @@ warn_unused_configs = true
 warn_no_return = false
 pretty = true
 
-[tool.isort]
-profile = "black"
-line_length = 120
-skip_glob = ["**/migrations/*.py"]
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+testpaths = ["tests"]
+addopts = "--cov=django_cookiejwt --cov-report=term-missing --cov-report=xml --cov-report=html"
+pythonpath = ["."]
 
-[tool.black]
+[tool.ruff]
 line-length = 120
-target-version = ['py38']
-exclude = '''
-(
-  /(
-      \.eggs         # exclude a few common directories in the
-    | \.git          # root of the project
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-    | venv
-    | migrations
-    | \.exports
-  )/
-)
-'''
+
+[tool.django-stubs]
+django_settings_module = "tests.settings"
+strict_settings = false
+ignore_missing_settings = true

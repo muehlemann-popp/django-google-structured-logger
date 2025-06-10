@@ -1,0 +1,105 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  GITHUB_REPOSITORY_OWNER: muehlemann-popp
+  GITHUB_REPOSITORY: django-cookiejwt
+  GIT_SHA:
+    sh: git rev-parse --short=8 HEAD
+  CURRENT_DATETIME:
+    sh: date +"%Y-%m-%d_%H-%M-%S"
+  DIR_SRC: ./src
+  DIR_TESTS: ./tests
+
+tasks:
+  default:
+    desc: Display list of all available tasks
+    cmds:
+      - task --list-all
+    silent: true
+
+  # Local environment
+
+  poetry:install:
+    desc: Install dependencies without changes in lock file
+    cmds:
+      - poetry install -vv --all-groups
+
+  poetry:install:ci:
+    desc: Install dependencies like in CI pipeline
+    cmds:
+      - poetry sync -vv --without=dev --no-cache --no-interaction
+
+  # Python Specific
+
+  py:format:src:
+    desc: Format python files in src directory
+    dir: "{{.DIR_SRC}}"
+    cmds:
+      - poetry run ruff check --select I --fix
+      - poetry run ruff format
+
+  py:format:tests:
+    desc: Format python files in tests directory
+    dir: "{{.DIR_TESTS}}"
+    cmds:
+      - poetry run ruff check --select I --fix
+      - poetry run ruff format
+
+  py:format:all:
+    desc: Format all Python files in src and tests directories
+    cmds:
+      - task: py:format:src
+      - task: py:format:tests
+
+  checks:mypy:
+    desc: Run mypy check
+    cmds:
+      - poetry run mypy {{.DIR_SRC}}
+      - poetry run mypy {{.DIR_TESTS}}
+
+  checks:tests:
+    desc: Run tests
+    cmds:
+      - poetry run pytest
+
+  checks:ruff:
+    desc: Run ruff checks
+    cmds:
+      - poetry run ruff check --fix
+
+  checks:coverage:
+    desc: Run code coverage check
+    ignore_error: true
+    cmds:
+      - poetry run coverage run -m pytest -vv {{.CLI_ARGS}}
+
+  precommit:
+    desc: Run all checks
+    cmds:
+      - task: py:format:all
+      - task: checks:ruff
+      - task: checks:mypy
+      - task: checks:coverage
+
+  # GitHub CLI
+
+  github:repository:getid:
+    desc: Get repository id with GitHub CLI
+    cmds:
+      - "gh api -H 'Accept: application/vnd.github+json' repos/{{ .GITHUB_REPOSITORY_OWNER }}/{{ .CLI_ARGS | default .GITHUB_REPOSITORY_NAME }} | jq .id"
+
+  # git cli
+
+  git:diff:
+    desc: Prepare git diff for review
+    cmds:
+      - mkdir -p ./var
+      - git diff > ./var/git_diff
+
+  git:diff:main:
+    desc: Prepare comparison between current branch and main branch for review
+    cmds:
+      - mkdir -p ./var
+      - git diff master..HEAD > ./var/git_diff
