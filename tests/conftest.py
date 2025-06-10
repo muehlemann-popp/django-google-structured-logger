@@ -218,3 +218,18 @@ def log_record_with_trace() -> logging.LogRecord:
     record.otelSpanID = "a1b2c3d4e5f6a1b2"
     record.otelTraceSampled = True
     return record
+
+
+@pytest.fixture
+def base_log_record() -> logging.LogRecord:
+    """A basic logging.LogRecord instance for formatter tests."""
+    return logging.LogRecord(
+        name="test_logger",
+        level=logging.INFO,
+        pathname="/app/tests.py",
+        lineno=42,
+        msg="This is a test message",
+        args=(),
+        exc_info=None,
+        func="test_function",
+    )
