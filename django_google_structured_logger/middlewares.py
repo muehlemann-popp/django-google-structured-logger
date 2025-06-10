@@ -17,13 +17,15 @@ logger = logging.getLogger(__name__)
 class SetUserContextMiddleware:
     def __init__(self, get_response: Callable):
         self.get_response = get_response
+        self.user_id_field = settings.LOG_USER_ID_FIELD
+        self.user_display_field = settings.LOG_USER_DISPLAY_FIELD
 
     def __call__(self, request: WSGIRequest):
         _current_request.set(
             RequestStorage(
                 uuid=str(uuid.uuid4()),
-                user_id=lambda: self._get_user_attribute(request.user, settings.LOG_USER_ID_FIELD),
-                user_display_field=lambda: self._get_user_attribute(request.user, settings.LOG_USER_DISPLAY_FIELD),
+                user_id=lambda: self._get_user_attribute(request.user, self.user_id_field),
+                user_display_field=lambda: self._get_user_attribute(request.user, self.user_display_field),
             )
         )
         return self.get_response(request)
