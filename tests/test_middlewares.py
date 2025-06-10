@@ -5,8 +5,9 @@ from unittest.mock import Mock, patch
 import pytest
 from django.http import HttpResponse
 
+from django_google_structured_logger.graphene_middlewares import GrapheneSetUserContextMiddleware
 from django_google_structured_logger.middlewares import LogRequestAndResponseMiddleware, SetUserContextMiddleware
-from django_google_structured_logger.storages import _current_request
+from django_google_structured_logger.storages import RequestStorage, _current_request
 
 
 class TestSetUserContextMiddleware:
@@ -293,3 +294,57 @@ class TestLogRequestAndResponseMiddleware:
         mock_logger.info.assert_not_called()
         mock_logger.warning.assert_not_called()
         mock_logger.exception.assert_not_called()
+
+
+class TestGrapheneSetUserContextMiddleware:
+    """Tests for GrapheneSetUserContextMiddleware."""
+
+    def test_sets_context_if_not_exists(self, mock_graphene_info, mock_user):
+        """
+        Verify that the middleware correctly creates a RequestStorage and extracts
+        user data from info.context.user when no context is present.
+        """
+        middleware = GrapheneSetUserContextMiddleware()
+        next_middleware = Mock()
+
+        # Ensure context is initially empty
+        assert _current_request.get() is None
+
+        middleware.resolve(next_middleware, None, mock_graphene_info)
+
+        storage = _current_request.get()
+        assert storage is not None
+        assert isinstance(storage, RequestStorage)
+        assert isinstance(storage.uuid, str)
+        assert uuid.UUID(storage.uuid)  # Ensures it's a valid UUID
+
+        # Verify user data is extracted correctly
+        assert storage.user_id() == mock_user.id
+        assert storage.user_display_field() == mock_user.email
+        next_middleware.assert_called_once()
+
+    def test_updates_existing_context(self, mock_request_storage, mock_graphene_info, mock_user):
+        """
+        Verify that if RequestStorage already exists (e.g., created by Django middleware),
+        it is correctly updated rather than replaced.
+        """
+        middleware = GrapheneSetUserContextMiddleware()
+        next_middleware = Mock()
+
+        # Get the initial storage and its UUID
+        initial_storage = _current_request.get()
+        assert initial_storage is not None
+        initial_uuid = initial_storage.uuid
+
+        middleware.resolve(next_middleware, None, mock_graphene_info)
+
+        updated_storage = _current_request.get()
+        assert updated_storage is not None
+
+        # Verify the storage object was updated, not replaced
+        assert updated_storage.uuid == initial_uuid
+
+        # Verify user data has been updated from the Graphene context
+        assert updated_storage.user_id() == mock_user.id
+        assert updated_storage.user_display_field() == mock_user.email
+        next_middleware.assert_called_once()
