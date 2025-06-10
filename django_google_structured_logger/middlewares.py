@@ -252,7 +252,6 @@ class LogRequestAndResponseMiddleware:
             except Exception:  # noqa
                 return self._abridge(body_str)
 
-        # Using traditional conditional checks instead of `match` for Python < 3.10 compatibility
         if content_type == "multipart/form-data":
             return "The image was uploaded to the server"
         elif content_type == "application/json":

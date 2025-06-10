@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 from django.http import HttpResponse
 
-from django_google_structured_logger.middlewares import SetUserContextMiddleware
+from django_google_structured_logger.middlewares import LogRequestAndResponseMiddleware, SetUserContextMiddleware
 from django_google_structured_logger.storages import _current_request
 
 
@@ -163,3 +163,133 @@ class TestSetUserContextMiddleware:
 
         # Verify all UUIDs are unique
         assert len(uuids) == 5
+
+
+@patch("django_google_structured_logger.middlewares.logger")
+class TestLogRequestAndResponseMiddleware:
+    @pytest.fixture
+    def get_response_factory(self):
+        def factory(response):
+            return lambda request: response
+
+        return factory
+
+    def test_basic_request_and_response_logging(
+        self, mock_logger, authenticated_request, mock_response, get_response_factory
+    ):
+        middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
+        middleware(authenticated_request)
+
+        assert mock_logger.info.call_count == 2
+        request_log_call = mock_logger.info.call_args_list[0]
+        response_log_call = mock_logger.info.call_args_list[1]
+
+        assert "request" in request_log_call.kwargs["extra"]
+        assert request_log_call.kwargs["extra"]["first_operation"] is True
+        assert request_log_call.kwargs["extra"]["request"]["method"] == "GET"
+
+        assert "response" in response_log_call.kwargs["extra"]
+        assert response_log_call.kwargs["extra"]["last_operation"] is True
+        assert response_log_call.kwargs["extra"]["response"]["status_code"] == 200
+
+    def test_error_response_logging(self, mock_logger, authenticated_request, error_response, get_response_factory):
+        middleware = LogRequestAndResponseMiddleware(get_response_factory(error_response))
+        middleware(authenticated_request)
+
+        mock_logger.info.assert_called_once()
+        mock_logger.warning.assert_called_once()
+
+        response_log_call = mock_logger.warning.call_args_list[0]
+        assert "response" in response_log_call.kwargs["extra"]
+        assert response_log_call.kwargs["extra"]["response"]["status_code"] == 500
+
+    def test_ignored_endpoint_from_settings(
+        self, mock_logger, request_to_ignored_endpoint, mock_response, get_response_factory
+    ):
+        middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
+        middleware(request_to_ignored_endpoint)
+        mock_logger.info.assert_not_called()
+        mock_logger.warning.assert_not_called()
+
+    def test_excluded_headers(self, mock_logger, request_with_sensitive_headers, mock_response, get_response_factory):
+        middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
+        middleware(request_with_sensitive_headers)
+
+        mock_logger.info.assert_called()
+        request_log_call = mock_logger.info.call_args_list[0]
+        logged_headers = request_log_call.kwargs["extra"]["request"]["headers"]
+
+        # All sensitive headers are excluded, making the header dict empty, which is then set to None.
+        assert logged_headers is None
+
+    @patch("django_google_structured_logger.middlewares.settings.LOG_MASK_STYLE", "partial")
+    def test_partial_masking_of_sensitive_data(
+        self, mock_logger, post_request_with_data, mock_response, get_response_factory
+    ):
+        middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
+        middleware(post_request_with_data)
+
+        request_log_call = mock_logger.info.call_args_list[0]
+        logged_body = request_log_call.kwargs["extra"]["request"]["body"]
+        assert logged_body["password"] == "se.....MASKED.....23"
+
+    @patch("django_google_structured_logger.middlewares.settings.LOG_MASK_STYLE", "complete")
+    def test_complete_masking_of_sensitive_data(
+        self, mock_logger, post_request_with_data, mock_response, get_response_factory
+    ):
+        middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
+        middleware(post_request_with_data)
+
+        request_log_call = mock_logger.info.call_args_list[0]
+        logged_body = request_log_call.kwargs["extra"]["request"]["body"]
+        assert logged_body["password"] == "...FULL_MASKED..."
+
+    @patch("django_google_structured_logger.middlewares.settings.LOG_MAX_STR_LEN", 50)
+    def test_abridging_long_strings(
+        self, mock_logger, request_with_long_data, response_with_long_data, get_response_factory
+    ):
+        middleware = LogRequestAndResponseMiddleware(get_response_factory(response_with_long_data))
+        middleware(request_with_long_data)
+
+        request_body = mock_logger.info.call_args_list[0].kwargs["extra"]["request"]["body"]
+        response_data = mock_logger.info.call_args_list[1].kwargs["extra"]["response"]["data"]
+
+        assert request_body["long_str"].endswith("..SHORTENED")
+        assert len(request_body["long_str"]) == 50 + len("..SHORTENED")
+        assert response_data["long_str"].endswith("..SHORTENED")
+        assert len(response_data["long_str"]) == 50 + len("..SHORTENED")
+
+    @patch("django_google_structured_logger.middlewares.settings.LOG_MAX_LIST_LEN", 5)
+    def test_abridging_long_lists(
+        self, mock_logger, request_with_long_data, response_with_long_data, get_response_factory
+    ):
+        middleware = LogRequestAndResponseMiddleware(get_response_factory(response_with_long_data))
+        middleware(request_with_long_data)
+
+        request_body = mock_logger.info.call_args_list[0].kwargs["extra"]["request"]["body"]
+        response_data = mock_logger.info.call_args_list[1].kwargs["extra"]["response"]["data"]
+
+        assert len(request_body["long_list"]) == 5
+        assert len(response_data["long_list"]) == 5
+
+    @patch("django_google_structured_logger.middlewares.settings.LOG_MAX_DEPTH", 3)
+    def test_abridging_deeply_nested_data(
+        self, mock_logger, request_with_long_data, response_with_long_data, get_response_factory
+    ):
+        middleware = LogRequestAndResponseMiddleware(get_response_factory(response_with_long_data))
+        middleware(request_with_long_data)
+
+        request_body = mock_logger.info.call_args_list[0].kwargs["extra"]["request"]["body"]
+        response_data = mock_logger.info.call_args_list[1].kwargs["extra"]["response"]["data"]
+
+        assert request_body["deep_dict"]["a"]["b"]["c"] == "..DEPTH EXCEEDED"
+        assert response_data["deep_dict"]["a"]["b"]["c"] == "..DEPTH EXCEEDED"
+
+    @patch("django_google_structured_logger.middlewares.settings.LOG_MIDDLEWARE_ENABLED", False)
+    def test_middleware_is_disabled(self, mock_logger, authenticated_request, mock_response, get_response_factory):
+        middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
+        middleware(authenticated_request)
+
+        mock_logger.info.assert_not_called()
+        mock_logger.warning.assert_not_called()
+        mock_logger.exception.assert_not_called()
