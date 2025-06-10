@@ -243,7 +243,7 @@ class LogRequestAndResponseMiddleware:
         """
 
         def decode_and_abridge(body_bytes):
-            body_str = body_bytes.decode("UTF-8") if body_bytes else None
+            body_str: str = body_bytes.decode("UTF-8") if body_bytes else ""
             try:
                 return self._abridge(json.loads(body_str))
             except Exception:  # noqa

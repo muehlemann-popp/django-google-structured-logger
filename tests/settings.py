@@ -3,6 +3,7 @@ Django settings for testing django_google_structured_logger.
 """
 
 import os
+from typing import List
 
 from django_google_structured_logger.constants import DEFAULT_SENSITIVE_HEADERS, DEFAULT_SENSITIVE_KEYS
 
@@ -67,7 +68,7 @@ DATABASES = {
 }
 
 # Password validation
-AUTH_PASSWORD_VALIDATORS = []
+AUTH_PASSWORD_VALIDATORS: List[str] = []
 
 # Internationalization
 LANGUAGE_CODE = "en-us"
