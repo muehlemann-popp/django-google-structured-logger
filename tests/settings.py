@@ -3,6 +3,7 @@ Django settings for testing django_google_structured_logger.
 """
 
 import os
+
 from django_google_structured_logger.constants import DEFAULT_SENSITIVE_HEADERS, DEFAULT_SENSITIVE_KEYS
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -136,12 +137,14 @@ LOGGING = {
     },
 }
 
+
 # Disable migrations for faster testing
 class DisableMigrations:
     def __contains__(self, item):
         return True
-    
+
     def __getitem__(self, item):
         return None
+
 
 MIGRATION_MODULES = DisableMigrations()

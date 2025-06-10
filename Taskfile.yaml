@@ -9,7 +9,7 @@ vars:
     sh: git rev-parse --short=8 HEAD
   CURRENT_DATETIME:
     sh: date +"%Y-%m-%d_%H-%M-%S"
-  DIR_SRC: ./src
+  DIR_SRC: ./django_google_structured_logger
   DIR_TESTS: ./tests
 
 tasks:

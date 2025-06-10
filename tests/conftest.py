@@ -1,13 +1,11 @@
-import pytest
 import uuid
 from unittest.mock import Mock
 
+import pytest
 from django.contrib.auth import get_user_model
-from django.test import RequestFactory, Client
-from django.http import HttpRequest
+from django.test import Client, RequestFactory
 
 from django_google_structured_logger.storages import RequestStorage, _current_request
-
 
 User = get_user_model()
 
@@ -68,11 +66,7 @@ def anonymous_request(request_factory, anonymous_user):
 def post_request_with_data(request_factory, mock_user):
     """POST request with JSON data."""
     data = {"username": "test", "password": "secret123", "email": "test@example.com"}
-    request = request_factory.post(
-        "/api/login/",
-        data=data,
-        content_type="application/json"
-    )
+    request = request_factory.post("/api/login/", data=data, content_type="application/json")
     request.user = mock_user
     return request
 
@@ -84,7 +78,7 @@ def request_with_sensitive_headers(request_factory, mock_user):
         "/api/users/",
         HTTP_AUTHORIZATION="Bearer secret-token",
         HTTP_X_API_KEY="api-key-123",
-        HTTP_COOKIE="sessionid=abc123"
+        HTTP_COOKIE="sessionid=abc123",
     )
     request.user = mock_user
     return request
@@ -93,11 +87,7 @@ def request_with_sensitive_headers(request_factory, mock_user):
 @pytest.fixture
 def mock_request_storage():
     """Mock request storage for context testing."""
-    storage = RequestStorage(
-        uuid=str(uuid.uuid4()),
-        user_id=lambda: 1,
-        user_display_field=lambda: "test@example.com"
-    )
+    storage = RequestStorage(uuid=str(uuid.uuid4()), user_id=lambda: 1, user_display_field=lambda: "test@example.com")
     _current_request.set(storage)
     yield storage
     _current_request.set(None)

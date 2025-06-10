@@ -21,12 +21,8 @@ class SetUserContextMiddleware:
         _current_request.set(
             RequestStorage(
                 uuid=str(uuid.uuid4()),
-                user_id=lambda: self._get_user_attribute(
-                    request.user, settings.LOG_USER_ID_FIELD
-                ),
-                user_display_field=lambda: self._get_user_attribute(
-                    request.user, settings.LOG_USER_DISPLAY_FIELD
-                ),
+                user_id=lambda: self._get_user_attribute(request.user, settings.LOG_USER_ID_FIELD),
+                user_display_field=lambda: self._get_user_attribute(request.user, settings.LOG_USER_DISPLAY_FIELD),
             )
         )
         return self.get_response(request)
@@ -41,9 +37,7 @@ class LogRequestAndResponseMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
-        self.log_excluded_headers_set = set(
-            map(str.lower, settings.LOG_EXCLUDED_HEADERS)
-        )
+        self.log_excluded_headers_set = set(map(str.lower, settings.LOG_EXCLUDED_HEADERS))
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         if not settings.LOG_MIDDLEWARE_ENABLED:
@@ -68,22 +62,16 @@ class LogRequestAndResponseMiddleware:
         try:
             path = self._empty_value_none(getattr(request, "path", None))
             method = self._empty_value_none(getattr(request, "method", None))
-            content_type = self._empty_value_none(
-                getattr(request, "content_type", None)
-            )
+            content_type = self._empty_value_none(getattr(request, "content_type", None))
             request_body = self._empty_value_none(getattr(request, "body", None))
             request_data = {
                 "request": {
                     "body": self._get_request_body(content_type, request_body),
-                    "query_params": self._empty_value_none(
-                        getattr(request, "GET", None)
-                    ),
+                    "query_params": self._empty_value_none(getattr(request, "GET", None)),
                     "content_type": content_type,
                     "method": method,
                     "path": path,
-                    "headers": self._empty_value_none(
-                        self._exclude_keys(getattr(request, "headers", None))
-                    ),
+                    "headers": self._empty_value_none(self._exclude_keys(getattr(request, "headers", None))),
                 },
                 "first_operation": True,
             }
@@ -110,12 +98,8 @@ class LogRequestAndResponseMiddleware:
             response_data = self._abridge(getattr(response, "data", None))
             if response_data is None:
                 response_content = self._abridge(getattr(response, "content", None))
-                content_type = self._empty_value_none(
-                    getattr(request, "content_type", None)
-                )
-                response_data = (
-                    self._get_request_body(content_type, response_content),
-                )
+                content_type = self._empty_value_none(getattr(request, "content_type", None))
+                response_data = (self._get_request_body(content_type, response_content),)
             response_status_code = getattr(response, "status_code", 0)
             response_headers = self._exclude_keys(getattr(response, "headers", None))
 
@@ -128,12 +112,8 @@ class LogRequestAndResponseMiddleware:
                 "last_operation": True,
             }
 
-            log_message = (
-                f"Response {request.method} {request.path} > {response_status_code}"
-            )
-            logger_method = (
-                logger.info if 199 < response_status_code < 300 else logger.warning
-            )
+            log_message = f"Response {request.method} {request.path} > {response_status_code}"
+            logger_method = logger.info if 199 < response_status_code < 300 else logger.warning
             logger_method(log_message, extra=data)
 
         except Exception as exc:
@@ -158,17 +138,11 @@ class LogRequestAndResponseMiddleware:
             return "..DEPTH EXCEEDED"
 
         if isinstance(data, dict):
-            data = {
-                k: self._abridge(v, current_depth + 1)
-                for k, v in data.items()
-                if k != "meta"
-            }
+            data = {k: self._abridge(v, current_depth + 1) for k, v in data.items() if k != "meta"}
         elif isinstance(data, str) and max_str_len and len(data) > max_str_len:
             return "{value}..SHORTENED".format(value=data[:max_str_len])
         elif isinstance(data, list) and max_list_len:
-            return [
-                self._abridge(item, current_depth + 1) for item in data[:max_list_len]
-            ]
+            return [self._abridge(item, current_depth + 1) for item in data[:max_list_len]]
         return data
 
     @staticmethod
@@ -230,9 +204,7 @@ class LogRequestAndResponseMiddleware:
             }
             _mask_style = mask_styles.get(style)
             if _mask_style is None:
-                logger.warning(
-                    f"Invalid mask style {style}. Using default style 'partial'."
-                )
+                logger.warning(f"Invalid mask style {style}. Using default style 'partial'.")
                 _mask_style = partial_mask
             return _mask_style
 
@@ -259,11 +231,7 @@ class LogRequestAndResponseMiddleware:
         """
         if obj is None:
             return None
-        return {
-            k: v
-            for k, v in obj.items()
-            if k.lower() not in self.log_excluded_headers_set
-        }
+        return {k: v for k, v in obj.items() if k.lower() not in self.log_excluded_headers_set}
 
     def _get_request_body(self, content_type, request_body) -> Union[str, Dict, None]:
         """
