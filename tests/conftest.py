@@ -1,6 +1,7 @@
 import json
 import logging
 import uuid
+from typing import Generator
 from unittest.mock import Mock
 
 import pytest
@@ -29,7 +30,7 @@ def client() -> Client:
 @pytest.fixture
 def mock_user() -> Mock:
     """Mock authenticated user."""
-    user = Mock()
+    user = Mock(spec=User)
     user.id = 1
     user.email = "test@example.com"
     user.username = "testuser"
@@ -41,7 +42,7 @@ def mock_user() -> Mock:
 @pytest.fixture
 def anonymous_user() -> Mock:
     """Mock anonymous user."""
-    user = Mock()
+    user = Mock(spec=User)
     user.id = None
     user.email = None
     user.username = None
@@ -89,7 +90,7 @@ def request_with_sensitive_headers(request_factory: RequestFactory, mock_user: M
 
 
 @pytest.fixture
-def mock_request_storage():
+def mock_request_storage() -> Generator[RequestStorage, None, None]:
     """Mock request storage for context testing."""
     storage = RequestStorage(uuid=str(uuid.uuid4()), user_id=lambda: 1, user_display_field=lambda: "test@example.com")
     _current_request.set(storage)

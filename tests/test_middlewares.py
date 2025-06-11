@@ -1,5 +1,4 @@
 import uuid
-from typing import cast
 from unittest.mock import Mock, patch
 
 import pytest
@@ -122,11 +121,9 @@ class TestSetUserContextMiddleware:
             # Verify storage was created
             assert storage is not None
 
-            # Verify missing attributes return None. Both user_id and user_display_field will return Mock object.
-            user_id = cast(Mock, storage.user_id())
-            assert user_id.side_effect is None
-            user_display_field = cast(Mock, storage.user_display_field())
-            assert user_display_field.side_effect is None
+            # Verify missing attributes return None
+            assert storage.user_id() is None
+            assert storage.user_display_field() is None
 
     def test_multiple_requests_different_contexts(
         self, middleware, authenticated_request, anonymous_request, middleware_settings
