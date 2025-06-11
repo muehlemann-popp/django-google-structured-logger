@@ -3,6 +3,10 @@
 [![PyPI version](https://badge.fury.io/py/django-google-structured-logger.svg)](https://badge.fury.io/py/django-google-structured-logger)
 [![Python Versions](https://img.shields.io/pypi/pyversions/django-google-structured-logger)](https://pypi.org/project/django-google-structured-logger/)
 [![Django Versions](https://img.shields.io/pypi/djversions/django-google-structured-logger)](https://pypi.org/project/django-google-structured-logger/)
+[![codecov](https://codecov.io/gh/muehlemann-popp/django-google-structured-logger/graph/badge.svg?token=2X2RMRFOZO)](https://codecov.io/gh/muehlemann-popp/django-google-structured-logger)
+![Mypy Checked](https://img.shields.io/badge/checked%20with-mypy-blue.svg)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Taskfile](https://img.shields.io/badge/Task-Taskfile-blue?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIiB2aWV3Qm94PSIwIDAgMzc1IDM3NSI+PHBhdGggZmlsbD0iIzI5YmViMCIgZD0iTSAxODcuNTcwMzEyIDE5MC45MzM1OTQgTCAxODcuNTcwMzEyIDM3NSBMIDMwLjA3MDMxMiAyNzkuNTM1MTU2IEwgMzAuMDcwMzEyIDk1LjQ2NDg0NCBaIi8+PHBhdGggZmlsbD0iIzY5ZDJjOCIgZD0iTSAxODcuNTcwMzEyIDE5MC45MzM1OTQgTCAxODcuNTcwMzEyIDM3NSBMIDM0NS4wNzAzMTIgMjc5LjUzNTE1NiBMIDM0NS4wNzAzMTIgOTUuNDY0ODQ0IFoiLz48cGF0aCBmaWxsPSIjOTRkZmQ4IiBkPSJNIDE4Ny41NzAzMTIgMTkwLjkzMzU5NCBMIDMwLjA3MDMxMiA5NS40NjQ4NDQgTCAxODcuNTcwMzEyIDAgTCAzNDUuMDcwMzEyIDk1LjQ2NDg0NCBaIi8+PC9zdmc+)](https://taskfile.dev/)
 
 **Django Google Structured Logger** is a Django middleware designed to capture and log details from incoming requests and outgoing responses. It offers features to mask sensitive data, set default fields for Google Cloud Logging, and structure logs in a detailed and organized manner.
 
