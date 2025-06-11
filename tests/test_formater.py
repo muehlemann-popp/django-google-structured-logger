@@ -1,13 +1,14 @@
 import json
+from logging import LogRecord
 
 from django_google_structured_logger.formatter import GoogleCloudFormatter, StandardJSONFormatter
+from django_google_structured_logger.storages import RequestStorage
 
 
 class TestStandardJSONFormatter:
-    def test_correct_log_structure_with_context(self, base_log_record, mock_request_storage):
+    def test_correct_log_structure_with_context(self, base_log_record: LogRecord, mock_request_storage: RequestStorage):
         """
-        1.1. Tests that the formatter correctly structures log records and enriches
-        them with data from the request context.
+        Tests that the formatter correctly structures log records and enriches them with data from the request context.
         """
         formatter = StandardJSONFormatter()
         # Add request as a direct attribute for the formatter to process
@@ -36,10 +37,10 @@ class TestStandardJSONFormatter:
         # Check for http_request
         assert log_dict["http_request"] == {"method": "GET", "url": "/test"}
 
-    def test_works_without_request_context(self, base_log_record, clear_context):
+    def test_works_without_request_context(self, base_log_record: LogRecord):
         """
-        1.2. Ensures the formatter does not raise errors when get_current_request()
-        returns None and that user-dependent fields are empty.
+        Ensures the formatter does not raise errors when get_current_request() returns None and that user-dependent
+        fields are empty.
         """
         formatter = StandardJSONFormatter()
         formatted_log = formatter.format(base_log_record)
@@ -56,10 +57,9 @@ class TestStandardJSONFormatter:
 
 
 class TestGoogleCloudFormatter:
-    def test_field_remapping_for_google_cloud(self, base_log_record, mock_request_storage, mock_google_cloud_settings):
+    def test_field_remapping_for_google_cloud(self, base_log_record: LogRecord, mock_request_storage: RequestStorage):
         """
-        2.1. Verifies that standard fields (source_location, operation, labels)
-        are renamed to Google-specific fields.
+        Verifies that standard fields (source_location, operation, labels) are renamed to Google-specific fields.
         """
         formatter = GoogleCloudFormatter()
         formatted_log = formatter.format(base_log_record)
@@ -78,23 +78,24 @@ class TestGoogleCloudFormatter:
         assert log_dict[formatter.google_operation_field]["id"] == mock_request_storage.uuid
         assert log_dict[formatter.google_labels_field]["user_id"] == "1"
 
-    def test_trace_correlation(self, log_record_with_trace, mock_google_cloud_settings):
+    def test_trace_correlation(self, log_record_with_trace: LogRecord):
         """
-        2.2. Verifies that if otelTraceID is present, the log is enriched
-        with the logging.googleapis.com/trace field.
+        Verifies that if otelTraceID is present, the log is enriched with the logging.googleapis.com/trace field.
         """
         formatter = GoogleCloudFormatter()
         formatted_log = formatter.format(log_record_with_trace)
         log_dict = json.loads(formatted_log)
 
+        assert hasattr(log_record_with_trace, "otelTraceID")
+        assert hasattr(log_record_with_trace, "otelSpanID")
         expected_trace = f"projects/test-project-123/traces/{log_record_with_trace.otelTraceID}"
         assert log_dict[formatter.google_trace_field] == expected_trace
         assert log_dict["spanId"] == log_record_with_trace.otelSpanID
         assert log_dict["traceSampled"] is True
 
-    def test_trace_correlation_without_project_id(self, settings, log_record_with_trace):
+    def test_trace_correlation_without_project_id(self, log_record_with_trace: LogRecord, settings):
         """
-        2.3. Verifies that the trace field is not added if GOOGLE_CLOUD_PROJECT is not set.
+        Verifies that the trace field is not added if GOOGLE_CLOUD_PROJECT is not set.
         """
         settings.GOOGLE_CLOUD_PROJECT = None
         formatter = GoogleCloudFormatter()
