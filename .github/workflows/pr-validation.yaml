@@ -1,0 +1,60 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: main
+  push:
+    branches: main
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-24.04
+    name: Source code quality check
+    steps:
+      - name: Get latest SHA on the branch
+        id: get_sha
+        run: |
+          echo "COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.get_sha.outputs.COMMIT_SHA }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Poetry and dependencies
+        run: |
+          pip install poetry==2.1.2
+          poetry sync -vv --all-groups --no-cache --no-interaction
+
+      - name: Run tests
+        run: |
+          echo '### tests result' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          poetry run pytest >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Type checks
+        run: |
+          echo '### mypy checks' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          poetry run mypy django_google_structured_logger >> $GITHUB_STEP_SUMMARY
+          poetry run mypy tests >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Lint
+        run: |
+          echo '### ruff linter checks' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY  
+          poetry run ruff check >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage-reports/coverage.xml
