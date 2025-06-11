@@ -1,12 +1,14 @@
 import json
 import logging
 import uuid
-from typing import Generator
+from typing import Callable, Generator
 from unittest.mock import Mock
 
 import pytest
+from django.conf import LazySettings
 from django.contrib.auth import get_user_model
 from django.core.handlers.wsgi import WSGIRequest
+from django.http import HttpResponse
 from django.test import Client, RequestFactory
 
 from django_google_structured_logger.middlewares import LogRequestAndResponseMiddleware
@@ -99,14 +101,14 @@ def mock_request_storage() -> Generator[RequestStorage, None, None]:
 
 
 @pytest.fixture
-def mock_google_cloud_settings(settings):
+def mock_google_cloud_settings(settings: LazySettings) -> LazySettings:
     """Mock Google Cloud Project settings."""
     settings.GOOGLE_CLOUD_PROJECT = "test-project-123"
     return settings
 
 
 @pytest.fixture
-def middleware_settings(settings):
+def middleware_settings(settings: LazySettings) -> LazySettings:
     """Configure middleware settings for testing."""
     settings.LOG_MIDDLEWARE_ENABLED = True
     settings.LOG_MAX_STR_LEN = 50
@@ -234,3 +236,11 @@ def base_log_record() -> logging.LogRecord:
         exc_info=None,
         func="test_function",
     )
+
+
+@pytest.fixture
+def get_response_factory() -> Callable[[HttpResponse], Callable[[WSGIRequest], HttpResponse]]:
+    def factory(response: HttpResponse) -> Callable[[WSGIRequest], HttpResponse]:
+        return lambda request: response
+
+    return factory

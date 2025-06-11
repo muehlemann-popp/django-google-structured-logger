@@ -1,7 +1,10 @@
 import uuid
+from typing import Callable
 from unittest.mock import Mock, patch
 
 import pytest
+from django.conf import LazySettings
+from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
 
 from django_google_structured_logger.graphene_middlewares import GrapheneSetUserContextMiddleware
@@ -13,21 +16,27 @@ class TestSetUserContextMiddleware:
     """Tests for SetUserContextMiddleware that manages user context in request storage."""
 
     @pytest.fixture
-    def mock_get_response(self):
+    def mock_get_response(self) -> Callable[[WSGIRequest], HttpResponse]:
         """Mock get_response function that returns a basic HttpResponse."""
 
-        def get_response(request):
+        def get_response(request: WSGIRequest) -> HttpResponse:
             return HttpResponse("Test response")
 
         return get_response
 
     @pytest.fixture
-    def middleware(self, mock_get_response):
+    def middleware(self, mock_get_response: Callable[[WSGIRequest], HttpResponse]) -> SetUserContextMiddleware:
         """SetUserContextMiddleware instance."""
         return SetUserContextMiddleware(mock_get_response)
 
-    def test_authenticated_user_context(self, middleware, authenticated_request, middleware_settings):
+    def test_authenticated_user_context(
+        self,
+        middleware: SetUserContextMiddleware,
+        authenticated_request: WSGIRequest,
+        middleware_settings: LazySettings,
+    ):
         """Test that authenticated user context is correctly set in RequestStorage."""
+        assert middleware_settings.LOG_MIDDLEWARE_ENABLED
         # Call middleware
         response = middleware(authenticated_request)
 
@@ -46,8 +55,11 @@ class TestSetUserContextMiddleware:
         # Verify response is returned
         assert response.status_code == 200
 
-    def test_anonymous_user_context(self, middleware, anonymous_request, middleware_settings):
+    def test_anonymous_user_context(
+        self, middleware: SetUserContextMiddleware, anonymous_request: WSGIRequest, middleware_settings: LazySettings
+    ):
         """Test that anonymous user context sets user fields to None."""
+        assert middleware_settings.LOG_MIDDLEWARE_ENABLED
         # Call middleware
         response = middleware(anonymous_request)
 
@@ -66,7 +78,12 @@ class TestSetUserContextMiddleware:
         # Verify response is returned
         assert response.status_code == 200
 
-    def test_custom_user_fields(self, mock_get_response, authenticated_request, settings):
+    def test_custom_user_fields(
+        self,
+        mock_get_response: Callable[[WSGIRequest], HttpResponse],
+        authenticated_request: WSGIRequest,
+        settings: LazySettings,
+    ):
         """Test middleware uses custom LOG_USER_ID_FIELD and LOG_USER_DISPLAY_FIELD settings."""
 
         # Configure custom user field settings
@@ -74,6 +91,8 @@ class TestSetUserContextMiddleware:
         settings.LOG_USER_DISPLAY_FIELD = "username"
 
         # Ensure mock user has username attribute
+        assert authenticated_request.user.is_authenticated
+        assert hasattr(authenticated_request.user, "username")
         authenticated_request.user.username = "testuser"
 
         # Patch the settings in the middleware module and create new instance
@@ -98,7 +117,12 @@ class TestSetUserContextMiddleware:
         # Verify response is returned
         assert response.status_code == 200
 
-    def test_missing_user_attributes(self, mock_get_response, authenticated_request, settings):
+    def test_missing_user_attributes(
+        self,
+        mock_get_response: Callable[[WSGIRequest], HttpResponse],
+        authenticated_request: WSGIRequest,
+        settings: LazySettings,
+    ):
         """Test middleware handles missing user attributes gracefully."""
 
         # Configure non-existent field
@@ -126,9 +150,14 @@ class TestSetUserContextMiddleware:
             assert storage.user_display_field() is None
 
     def test_multiple_requests_different_contexts(
-        self, middleware, authenticated_request, anonymous_request, middleware_settings
+        self,
+        middleware: SetUserContextMiddleware,
+        authenticated_request: WSGIRequest,
+        anonymous_request: WSGIRequest,
+        middleware_settings: LazySettings,
     ):
         """Test that each request gets its own context storage."""
+        assert middleware_settings.LOG_MIDDLEWARE_ENABLED
         # Process authenticated request
         middleware(authenticated_request)
         auth_storage = _current_request.get()
@@ -148,8 +177,14 @@ class TestSetUserContextMiddleware:
         assert auth_user_id == 1
         assert anon_user_id is None
 
-    def test_uuid_uniqueness(self, middleware, authenticated_request, middleware_settings):
+    def test_uuid_uniqueness(
+        self,
+        middleware: SetUserContextMiddleware,
+        authenticated_request: WSGIRequest,
+        middleware_settings: LazySettings,
+    ):
         """Test that each middleware call generates a unique UUID."""
+        assert middleware_settings.LOG_MIDDLEWARE_ENABLED
         uuids = set()
 
         # Call middleware multiple times
@@ -165,15 +200,12 @@ class TestSetUserContextMiddleware:
 
 @patch("django_google_structured_logger.middlewares.logger")
 class TestLogRequestAndResponseMiddleware:
-    @pytest.fixture
-    def get_response_factory(self):
-        def factory(response):
-            return lambda request: response
-
-        return factory
-
     def test_basic_request_and_response_logging(
-        self, mock_logger, authenticated_request, mock_response, get_response_factory
+        self,
+        mock_logger: Mock,
+        authenticated_request: WSGIRequest,
+        mock_response: HttpResponse,
+        get_response_factory: Callable[[HttpResponse], Callable[[WSGIRequest], HttpResponse]],
     ):
         middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
         middleware(authenticated_request)
@@ -190,7 +222,13 @@ class TestLogRequestAndResponseMiddleware:
         assert response_log_call.kwargs["extra"]["last_operation"] is True
         assert response_log_call.kwargs["extra"]["response"]["status_code"] == 200
 
-    def test_error_response_logging(self, mock_logger, authenticated_request, error_response, get_response_factory):
+    def test_error_response_logging(
+        self,
+        mock_logger: Mock,
+        authenticated_request: WSGIRequest,
+        error_response: HttpResponse,
+        get_response_factory: Callable[[HttpResponse], Callable[[WSGIRequest], HttpResponse]],
+    ):
         middleware = LogRequestAndResponseMiddleware(get_response_factory(error_response))
         middleware(authenticated_request)
 
@@ -202,14 +240,24 @@ class TestLogRequestAndResponseMiddleware:
         assert response_log_call.kwargs["extra"]["response"]["status_code"] == 500
 
     def test_ignored_endpoint_from_settings(
-        self, mock_logger, request_to_ignored_endpoint, mock_response, get_response_factory
+        self,
+        mock_logger: Mock,
+        request_to_ignored_endpoint: WSGIRequest,
+        mock_response: HttpResponse,
+        get_response_factory: Callable[[HttpResponse], Callable[[WSGIRequest], HttpResponse]],
     ):
         middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
         middleware(request_to_ignored_endpoint)
         mock_logger.info.assert_not_called()
         mock_logger.warning.assert_not_called()
 
-    def test_excluded_headers(self, mock_logger, request_with_sensitive_headers, mock_response, get_response_factory):
+    def test_excluded_headers(
+        self,
+        mock_logger: Mock,
+        request_with_sensitive_headers: WSGIRequest,
+        mock_response: HttpResponse,
+        get_response_factory: Callable[[HttpResponse], Callable[[WSGIRequest], HttpResponse]],
+    ):
         middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
         middleware(request_with_sensitive_headers)
 
@@ -222,7 +270,11 @@ class TestLogRequestAndResponseMiddleware:
 
     @patch("django_google_structured_logger.middlewares.settings.LOG_MASK_STYLE", "partial")
     def test_partial_masking_of_sensitive_data(
-        self, mock_logger, post_request_with_data, mock_response, get_response_factory
+        self,
+        mock_logger: Mock,
+        post_request_with_data: WSGIRequest,
+        mock_response: HttpResponse,
+        get_response_factory: Callable[[HttpResponse], Callable[[WSGIRequest], HttpResponse]],
     ):
         middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
         middleware(post_request_with_data)
@@ -233,7 +285,11 @@ class TestLogRequestAndResponseMiddleware:
 
     @patch("django_google_structured_logger.middlewares.settings.LOG_MASK_STYLE", "complete")
     def test_complete_masking_of_sensitive_data(
-        self, mock_logger, post_request_with_data, mock_response, get_response_factory
+        self,
+        mock_logger: Mock,
+        post_request_with_data: WSGIRequest,
+        mock_response: HttpResponse,
+        get_response_factory: Callable[[HttpResponse], Callable[[WSGIRequest], HttpResponse]],
     ):
         middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
         middleware(post_request_with_data)
@@ -244,7 +300,11 @@ class TestLogRequestAndResponseMiddleware:
 
     @patch("django_google_structured_logger.middlewares.settings.LOG_MAX_STR_LEN", 50)
     def test_abridging_long_strings(
-        self, mock_logger, request_with_long_data, response_with_long_data, get_response_factory
+        self,
+        mock_logger: Mock,
+        request_with_long_data: WSGIRequest,
+        response_with_long_data: HttpResponse,
+        get_response_factory: Callable[[HttpResponse], Callable[[WSGIRequest], HttpResponse]],
     ):
         middleware = LogRequestAndResponseMiddleware(get_response_factory(response_with_long_data))
         middleware(request_with_long_data)
@@ -259,7 +319,11 @@ class TestLogRequestAndResponseMiddleware:
 
     @patch("django_google_structured_logger.middlewares.settings.LOG_MAX_LIST_LEN", 5)
     def test_abridging_long_lists(
-        self, mock_logger, request_with_long_data, response_with_long_data, get_response_factory
+        self,
+        mock_logger: Mock,
+        request_with_long_data: WSGIRequest,
+        response_with_long_data: HttpResponse,
+        get_response_factory: Callable[[HttpResponse], Callable[[WSGIRequest], HttpResponse]],
     ):
         middleware = LogRequestAndResponseMiddleware(get_response_factory(response_with_long_data))
         middleware(request_with_long_data)
@@ -272,7 +336,11 @@ class TestLogRequestAndResponseMiddleware:
 
     @patch("django_google_structured_logger.middlewares.settings.LOG_MAX_DEPTH", 3)
     def test_abridging_deeply_nested_data(
-        self, mock_logger, request_with_long_data, response_with_long_data, get_response_factory
+        self,
+        mock_logger: Mock,
+        request_with_long_data: WSGIRequest,
+        response_with_long_data: HttpResponse,
+        get_response_factory: Callable[[HttpResponse], Callable[[WSGIRequest], HttpResponse]],
     ):
         middleware = LogRequestAndResponseMiddleware(get_response_factory(response_with_long_data))
         middleware(request_with_long_data)
@@ -284,7 +352,13 @@ class TestLogRequestAndResponseMiddleware:
         assert response_data["deep_dict"]["a"]["b"]["c"] == "..DEPTH EXCEEDED"
 
     @patch("django_google_structured_logger.middlewares.settings.LOG_MIDDLEWARE_ENABLED", False)
-    def test_middleware_is_disabled(self, mock_logger, authenticated_request, mock_response, get_response_factory):
+    def test_middleware_is_disabled(
+        self,
+        mock_logger: Mock,
+        authenticated_request: WSGIRequest,
+        mock_response: HttpResponse,
+        get_response_factory: Callable[[HttpResponse], Callable[[WSGIRequest], HttpResponse]],
+    ):
         middleware = LogRequestAndResponseMiddleware(get_response_factory(mock_response))
         middleware(authenticated_request)
 
@@ -296,10 +370,10 @@ class TestLogRequestAndResponseMiddleware:
 class TestGrapheneSetUserContextMiddleware:
     """Tests for GrapheneSetUserContextMiddleware."""
 
-    def test_sets_context_if_not_exists(self, mock_graphene_info, mock_user):
+    def test_sets_context_if_not_exists(self, mock_graphene_info: Mock, mock_user: Mock):
         """
-        Verify that the middleware correctly creates a RequestStorage and extracts
-        user data from info.context.user when no context is present.
+        Verify that the middleware correctly creates a RequestStorage and extracts user data from info.context.user
+        when no context is present.
         """
         middleware = GrapheneSetUserContextMiddleware()
         next_middleware = Mock()
@@ -320,11 +394,14 @@ class TestGrapheneSetUserContextMiddleware:
         assert storage.user_display_field() == mock_user.email
         next_middleware.assert_called_once()
 
-    def test_updates_existing_context(self, mock_request_storage, mock_graphene_info, mock_user):
+    def test_updates_existing_context(
+        self, mock_request_storage: RequestStorage, mock_graphene_info: Mock, mock_user: Mock
+    ):
         """
-        Verify that if RequestStorage already exists (e.g., created by Django middleware),
-        it is correctly updated rather than replaced.
+        Verify that if RequestStorage already exists (e.g., created by Django middleware), it is correctly updated
+        rather than replaced.
         """
+        assert isinstance(mock_request_storage, RequestStorage)
         middleware = GrapheneSetUserContextMiddleware()
         next_middleware = Mock()
 

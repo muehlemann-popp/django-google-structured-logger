@@ -37,8 +37,8 @@ class StandardJSONFormatter(jsonlogger.JsonFormatter):
     def _set_labels(self, log_record: Dict, current_request: Optional[RequestStorage]):
         """Set the labels in the log record under the `labels` key."""
         labels = {
-            "user_id": current_request.user_id() if current_request else None,
-            "user_display_field": current_request.user_display_field() if current_request else None,
+            "user_id": current_request.user_id() if current_request is not None else None,
+            "user_display_field": current_request.user_display_field() if current_request is not None else None,
             **log_record.pop("labels", {}),
         }
         self.stringify_values(labels)
@@ -71,8 +71,8 @@ class StandardJSONFormatter(jsonlogger.JsonFormatter):
 
 class GoogleCloudFormatter(StandardJSONFormatter):
     """
-    A log formatter for Google Cloud Logging. It inherits from StandardJSONFormatter
-    and maps the standard fields to Google Cloud's specific field names.
+    A log formatter for Google Cloud Logging. It inherits from StandardJSONFormatter and maps the standard fields to
+    Google Cloud's specific field names.
     """
 
     google_source_location_field = "logging.googleapis.com/sourceLocation"
