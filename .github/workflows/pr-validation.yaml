@@ -42,7 +42,7 @@ jobs:
         run: |
           echo '### mypy checks' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          poetry run mypy src >> $GITHUB_STEP_SUMMARY
+          poetry run mypy django_google_structured_logger >> $GITHUB_STEP_SUMMARY
           poetry run mypy tests >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
