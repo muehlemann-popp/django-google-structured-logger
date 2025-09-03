@@ -113,9 +113,7 @@ class LogRequestAndResponseMiddleware:
                 content_type = self._empty_value_none(
                     getattr(request, "content_type", None)
                 )
-                response_data = (
-                    self._get_request_body(content_type, response_content),
-                )
+                response_data = self._get_request_body(content_type, response_content)
             response_status_code = getattr(response, "status_code", 0)
             response_headers = self._exclude_keys(getattr(response, "headers", None))
 
