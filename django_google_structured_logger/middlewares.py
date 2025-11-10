@@ -211,18 +211,32 @@ class LogRequestAndResponseMiddleware:
 
         def get_mask_function(style):
             def complete_mask(value):
-                return "...FULL_MASKED..."
+                if isinstance(value, dict):
+                    return {k: complete_mask(v) for k, v in value.items()}
+                elif isinstance(value, (list, tuple)):
+                    masked_items = [complete_mask(item) for item in value]
+                    return type(value)(masked_items)
+                else:
+                    return "...FULL_MASKED..."
 
             def partial_mask(value):
                 if not value:
                     return value
-                length = len(value)
-                if length <= 4:
-                    return complete_mask(value)
-                slice_value = min(4, length // 4)
-                return "{prefix_value}...MASKED...{suffix_value}".format(
-                    prefix_value=value[:slice_value], suffix_value=value[-slice_value:]
-                )
+                if isinstance(value, dict):
+                    return {k: partial_mask(v) for k, v in value.items()}
+                elif isinstance(value, (list, tuple)):
+                    masked_items = [partial_mask(item) for item in value]
+                    return type(value)(masked_items)
+                else:
+                    # Convert all other types to string and mask
+                    str_value = str(value)
+                    length = len(str_value)
+                    if length <= 4:
+                        return complete_mask(str_value)
+                    slice_value = min(4, length // 4)
+                    return "{prefix_value}...MASKED...{suffix_value}".format(
+                        prefix_value=str_value[:slice_value], suffix_value=str_value[-slice_value:]
+                    )
 
             mask_styles = {
                 "complete": complete_mask,
